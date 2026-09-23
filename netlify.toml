@@ -1,0 +1,18 @@
+# netlify.toml
+# ──────────────────────────────────────────────────────────────
+# Configuración de build y Functions para vimprintdesigns.com.
+# El sitio es HTML/CSS/JS estático — no hay paso de "build" real,
+# solo se publica el contenido tal cual y se declara dónde viven
+# las Functions.
+# ──────────────────────────────────────────────────────────────
+
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+# Cabeceras de seguridad razonables por defecto para todo el sitio.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

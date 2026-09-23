@@ -1,0 +1,8 @@
+{
+  "name": "vimprintdesigns-site",
+  "private": true,
+  "description": "Netlify Functions dependencies for vimprintdesigns.com/shop artwork upload.",
+  "dependencies": {
+    "@netlify/blobs": "^8.1.0"
+  }
+}

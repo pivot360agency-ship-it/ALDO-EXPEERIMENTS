@@ -14,6 +14,7 @@
 
   const state = {
     product: null,
+    isQuoteOnly: false, // true when the product carries the "quote-only" tag
     selectedOptions: {}, // { "Color": "Black" }
     selectedVariant: null,
     quantity: 1,
@@ -46,11 +47,19 @@
 
   // ── Bootstrap ────────────────────────────────────────────
 
+  const QUOTE_ONLY_TAG = 'quote-only';
+
   async function init() {
     renderLoading();
     await restoreCart();
     try {
-      state.product = await ShopifyClient.getPilotProduct();
+      // Generic product routing: /shop/?handle=<any-product-handle> loads
+      // that product. No handle in the URL falls back to the configured
+      // pilot product, so existing links keep working unchanged.
+      const params = new URLSearchParams(window.location.search);
+      const handle = params.get('handle');
+      state.product = await ShopifyClient.getProductByHandle(handle);
+      state.isQuoteOnly = ShopifyClient.hasTag(state.product, QUOTE_ONLY_TAG);
       initDefaultSelection();
       renderProduct();
     } catch (err) {
@@ -234,9 +243,10 @@
 
           <form id="productForm" novalidate>
             ${renderOptionGroups()}
-            ${renderCustomizationFields()}
+            ${state.isQuoteOnly ? '' : renderCustomizationFields()}
 
             <div class="opt-group">
+              ${state.isQuoteOnly ? '' : `
               <span class="opt-label">Quantity</span>
               <div class="qty-add-row">
                 <div class="qty-stepper">
@@ -247,7 +257,8 @@
                 <button type="submit" class="btn-add-cart" id="addCartBtn" ${!inStock || state.uploadStatus === 'uploading' ? 'disabled' : ''}>
                   ${inStock ? (state.uploadStatus === 'uploading' ? 'Uploading file…' : 'Add to Cart') : 'Sold Out'}
                 </button>
-              </div>
+              </div>`}
+              ${state.isQuoteOnly ? renderQuoteOnlyCta() : ''}
               <div class="form-error" id="formError" role="alert" aria-live="polite"></div>
             </div>
           </form>
@@ -289,6 +300,28 @@
       .join('');
   }
 
+  // Generic rule, not tied to any specific product: any product carrying the
+  // "quote-only" tag renders this link instead of an Add to Cart button, and
+  // the product is never added to the Shopify cart through any code path —
+  // there is no cart-mutation handler wired to this element at all, unlike
+  // the real #productForm submit which calls handleAddToCart().
+  function renderQuoteOnlyCta() {
+    const p = state.product;
+    const productCode = p.metafields.productCode || '';
+    const productUrl = window.location.href.split('?')[0] + (p.handle ? `?handle=${encodeURIComponent(p.handle)}` : '');
+    const params = new URLSearchParams({
+      product: p.title || '',
+      code: productCode,
+      url: productUrl,
+    });
+    const quoteHref = `/?${params.toString()}#contact`;
+    return `
+      <a href="${escapeHtml(quoteHref)}" class="btn-add-cart quote-only-cta" id="quoteOnlyBtn">
+        Request a Custom Quote
+      </a>
+      <p class="hint quote-only-hint">This is a fully custom, made-to-order item. Shipping and final pricing are confirmed after your project is defined — it can't be added to the cart directly.</p>`;
+  }
+
   function renderCustomizationFields() {
     const mf = state.product.metafields;
     let html = '';
@@ -296,12 +329,11 @@
     if (mf.allowCustomText) {
       html += `
         <div class="custom-field">
-          <label for="customText">Text to Engrave <span class="required-mark" aria-hidden="true">*</span></label>
+          <label for="customText">Custom text (optional)</label>
           <textarea id="customText" maxlength="60" placeholder="e.g. Coach Martinez — Est. 2019"
-            aria-required="true">${escapeHtml(state.customText)}</textarea>
+            aria-required="false">${escapeHtml(state.customText)}</textarea>
           <div class="char-count"><span id="charCount">${state.customText.length}</span>/60</div>
           ${mf.personalizationInstructions ? `<p class="hint">${escapeHtml(mf.personalizationInstructions)}</p>` : ''}
-          ${!mf.allowFileUpload ? '<p class="hint">Required — tell us what to engrave.</p>' : ''}
         </div>`;
     }
 
@@ -566,6 +598,12 @@
     // duplicate carts while a previous request is still in flight.
     if (state.addToCartInFlight) return;
 
+    // Defense in depth: even if this handler were ever invoked for a
+    // quote-only product (it shouldn't be — that product's form has no
+    // add-to-cart submit control, see renderQuoteOnlyCta), never let it
+    // reach the Shopify cart.
+    if (state.isQuoteOnly) return;
+
     const errorEl = document.getElementById('formError');
     const btn = document.getElementById('addCartBtn');
     errorEl.textContent = '';
@@ -584,19 +622,8 @@
       return;
     }
 
-    // Personalization is required for this pilot item: the shopper must
-    // supply either engraving text or an uploaded artwork file (or both).
-    const mf = state.product.metafields;
-    const hasText = mf.allowCustomText && state.customText.trim();
-    const hasFile = mf.allowFileUpload && state.uploadedFileKey;
-    if ((mf.allowCustomText || mf.allowFileUpload) && !hasText && !hasFile) {
-      errorEl.textContent = mf.allowFileUpload
-        ? 'Please enter engraving text or upload artwork before adding this to your cart.'
-        : 'Please enter the text you want engraved before adding this to your cart.';
-      document.getElementById('customText')?.focus();
-      return;
-    }
-
+    // Personalization is optional: the shopper may add this item to the
+    // cart with or without engraving text or an uploaded artwork file.
     const attributes = buildLineAttributes();
     const line = {
       merchandiseId: state.selectedVariant.id,

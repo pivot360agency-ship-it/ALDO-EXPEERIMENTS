@@ -51,12 +51,13 @@ const ShopifyClient = (() => {
   // ── QUERIES ──────────────────────────────────────────────
 
   const PRODUCT_QUERY = /* GraphQL */ `
-    query PilotProduct($handle: String!) {
+    query ShopProduct($handle: String!) {
       product(handle: $handle) {
         id
         title
         handle
         descriptionHtml
+        tags
         featuredImage {
           id
           url
@@ -113,6 +114,7 @@ const ShopifyClient = (() => {
             { namespace: "custom", key: "production_time" }
             { namespace: "custom", key: "bulk_minimum" }
             { namespace: "custom", key: "personalization_instructions" }
+            { namespace: "custom", key: "product_code" }
           ]
         ) {
           key
@@ -123,15 +125,25 @@ const ShopifyClient = (() => {
     }
   `;
 
-  async function getPilotProduct() {
-    const data = await request(PRODUCT_QUERY, { handle: cfg.pilotProductHandle });
+  // Generic by design: fetches ANY product by handle, not just one hardcoded
+  // "pilot" product. Falls back to cfg.pilotProductHandle only when no handle
+  // is supplied, so existing callers/URLs keep working unchanged.
+  async function getProductByHandle(handle) {
+    const targetHandle = handle || cfg.pilotProductHandle;
+    const data = await request(PRODUCT_QUERY, { handle: targetHandle });
     if (!data.product) {
       throw new ShopifyError(
         'not_found',
-        `No product found with handle "${cfg.pilotProductHandle}". Check that it's Active and published to the Headless channel.`
+        `No product found with handle "${targetHandle}". Check that it's Active and published to the Headless channel.`
       );
     }
     return normalizeProduct(data.product);
+  }
+
+  // Back-compat alias — existing call sites/tests may still reference this
+  // name; it now simply delegates to the generic handle-based fetch.
+  async function getPilotProduct() {
+    return getProductByHandle(cfg.pilotProductHandle);
   }
 
   // Builds the product's full, deduped gallery: featuredImage first, then
@@ -217,6 +229,7 @@ const ShopifyClient = (() => {
       handle: raw.handle,
       title: raw.title,
       descriptionHtml: raw.descriptionHtml,
+      tags: raw.tags || [],
       featuredImage: raw.featuredImage
         ? { ...raw.featuredImage, altText: altTextFor(raw.featuredImage, raw.title, null) }
         : gallery[0] || null,
@@ -238,8 +251,16 @@ const ShopifyClient = (() => {
         productionTime: metafieldMap.production_time || null,
         bulkMinimum: metafieldMap.bulk_minimum || null,
         personalizationInstructions: metafieldMap.personalization_instructions || null,
+        productCode: metafieldMap.product_code || null,
       },
     };
+  }
+
+  // Generic tag check — used by the storefront to decide whether a product
+  // is quote-only, without hardcoding to any specific product ID or handle.
+  function hasTag(product, tag) {
+    return !!(product && Array.isArray(product.tags) &&
+      product.tags.some((t) => (t || '').toLowerCase() === tag.toLowerCase()));
   }
 
   // ── CART MUTATIONS ───────────────────────────────────────
@@ -413,12 +434,14 @@ const ShopifyClient = (() => {
 
   return {
     getPilotProduct,
+    getProductByHandle,
     createCart,
     addLineToCart,
     removeLineFromCart,
     updateLineInCart,
     getCart,
     altTextFor,
+    hasTag,
     ShopifyError,
   };
 })();

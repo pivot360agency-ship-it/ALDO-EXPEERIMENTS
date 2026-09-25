@@ -362,6 +362,13 @@ a { text-decoration: none; color: inherit; }
   border: 2px solid rgba(10,10,10,.3); border-top-color: var(--ink);
   border-radius: 50%; animation: spin 0.7s linear infinite;
 }
+.quote-only-cta {
+  display: flex; align-items: center; justify-content: center;
+  text-decoration: none; width: 100%; box-sizing: border-box;
+}
+.quote-only-hint {
+  font-size: 0.82rem; color: var(--muted); margin-top: 10px; line-height: 1.5;
+}
 
 .form-error {
   color: var(--error); font-size: 0.85rem; margin-top: 10px;

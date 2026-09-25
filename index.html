@@ -1456,6 +1456,28 @@ document.querySelectorAll('.pkg-cta').forEach(btn=>{
     setTimeout(()=>document.querySelector('#qf [name="firstName"]')?.focus(),500);
   });
 });
+// QUOTE-ONLY PRODUCT PREFILL (from /#contact?product=...&code=...&url=...)
+// Populates the message field only — nothing here is stored server-side or
+// persisted anywhere; it only reads whatever is already in the page URL.
+(function(){
+  const params=new URLSearchParams(window.location.search);
+  const product=params.get('product');
+  const code=params.get('code');
+  const url=params.get('url');
+  if(!product && !code && !url) return;
+  const projectSelect=document.querySelector('#qf [name="projectType"]');
+  const messageEl=document.querySelector('#qf [name="message"]');
+  if(projectSelect) projectSelect.value='Custom / One-of-a-Kind';
+  if(messageEl){
+    const lines=[`I'd like a quote for: ${product||'a custom item'}`];
+    if(code) lines.push(`Product code: ${code}`);
+    if(url) lines.push(`Product link: ${url}`);
+    messageEl.value=lines.join('\n')+'\n\n'+messageEl.value;
+  }
+  if(window.location.hash==='#contact'||window.location.hash.startsWith('#contact')){
+    setTimeout(()=>document.getElementById('contact')?.scrollIntoView({behavior:'smooth'}),300);
+  }
+})();
 // REVEAL
 const ro=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('on');}),{threshold:.08});
 document.querySelectorAll('.reveal').forEach(el=>ro.observe(el));

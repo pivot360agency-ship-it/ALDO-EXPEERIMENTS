@@ -60,10 +60,25 @@
     { label: 'For Business', match: 'for-business' },
   ];
 
+  // Fase B: category cards are alternate triggers for the SAME filter
+  // buttons above (reuse existing filter logic — nothing new is filtered
+  // here). handle: null falls back to a CSS-only card visual when no
+  // representative product image is available in already-fetched data.
+  const CATEGORY_CARDS = [
+    { label: 'Tumblers & Gifts', match: 'tumblers-gifts', title: 'Tumblers & Gifts', desc: 'Engraved drinkware and keepsakes for everyday and celebration.' },
+    { label: 'Military Awards', match: 'military-awards', title: 'Military Awards', desc: 'Custom plaques and recognition pieces for service and retirement.' },
+    { label: 'Embroidered Apparel', match: 'embroidered-apparel', title: 'Embroidered Apparel', desc: 'Logo and name embroidery on shirts, hats and outerwear.' },
+    { label: 'Business Uniforms', match: 'business-uniforms', title: 'Business Uniforms', desc: 'Branded uniforms and workwear for professional teams.' },
+    { label: 'Pet Memorials', match: 'pet-memorials', title: 'Pet Memorials', desc: 'Lasting, personalized tributes to a beloved companion.' },
+  ];
+
   const catalogState = {
     products: null, // null = not loaded yet; [] = loaded, empty
     activeFilter: 'All Products',
+    sort: 'featured', // 'featured' | 'price-asc' | 'price-desc' — client-side only, existing fetched data
   };
+
+  const BEST_SELLERS_HANDLE = 'best-sellers';
 
   // Technical/structural collections that exist for site plumbing (the
   // Home page feed, the Best Sellers merchandising shelf) rather than as a
@@ -102,6 +117,8 @@
       return;
     }
 
+    document.body.classList.remove('catalog-view');
+
     try {
       state.product = await ShopifyClient.getProductByHandle(handle);
       state.isQuoteOnly = ShopifyClient.hasTag(state.product, QUOTE_ONLY_TAG);
@@ -137,6 +154,7 @@
   // ── Catalog (Fase 2) ─────────────────────────────────────
 
   async function initCatalog() {
+    document.body.classList.add('catalog-view');
     setBreadcrumb('<a href="/">Home</a> / Shop All');
     updateMetaTagsForCatalog();
     try {
@@ -295,10 +313,222 @@
 
   function filteredCatalogProducts() {
     const filter = CATALOG_FILTERS.find((f) => f.label === catalogState.activeFilter);
-    if (!filter || !filter.match) return catalogState.products;
-    return catalogState.products.filter((p) =>
-      p.collections.some((c) => c.handle === filter.match)
-    );
+    let list = (!filter || !filter.match)
+      ? (catalogState.products || [])
+      : (catalogState.products || []).filter((p) => p.collections.some((c) => c.handle === filter.match));
+
+    // Client-side sort only — uses data already fetched by getAllActiveProducts(),
+    // no new Storefront query shape. 'featured' keeps the server's own order.
+    if (catalogState.sort === 'price-asc' || catalogState.sort === 'price-desc') {
+      list = list.slice().sort((a, b) => {
+        const pa = a.minPrice === null ? Infinity : a.minPrice;
+        const pb = b.minPrice === null ? Infinity : b.minPrice;
+        return catalogState.sort === 'price-asc' ? pa - pb : pb - pa;
+      });
+    }
+    return list;
+  }
+
+  // Finds a representative product image for a category card from data the
+  // catalog has ALREADY fetched (no extra API calls) — the first product in
+  // that collection that has a featured image.
+  function representativeImageFor(matchHandle) {
+    const all = catalogState.products || [];
+    const hit = all.find((p) => p.image && p.collections.some((c) => c.handle === matchHandle));
+    return hit ? hit.image : null;
+  }
+
+  function initialsFor(title) {
+    return (title || '')
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0].toUpperCase())
+      .join('');
+  }
+
+  function renderShopHero() {
+    return `
+      <section class="shop-hero-v2 shop-hero" aria-label="Shop introduction">
+        <div class="shop-hero-v2-copy">
+          <span class="shop-hero-v2-eyebrow">Personalized With Purpose</span>
+          <p class="shop-hero-v2-heading"><span>Made Personal.</span><span>Made to Last.</span></p>
+          <p class="shop-hero-v2-body">Custom embroidery, laser engraving, military awards and meaningful gifts&mdash;crafted with precision in Virginia.</p>
+          <div class="shop-hero-v2-ctas">
+            <button type="button" class="shop-hero-cta shop-hero-cta-primary" id="heroShopCta">Shop Best Sellers</button>
+            <button type="button" class="shop-hero-cta shop-hero-cta-outline" id="heroMilitaryCta" data-filter-trigger="Military Awards">Explore Military Awards</button>
+          </div>
+          <p class="shop-hero-v2-trust">Made in Virginia &middot; Fast Turnaround &middot; Local Pickup Available</p>
+        </div>
+        <div class="shop-hero-v2-visual" aria-hidden="true">
+          <span class="shop-hero-v2-visual-mark">V</span>
+        </div>
+      </section>`;
+  }
+
+  function renderCategoryCards() {
+    return `
+      <section class="mhw-section craft-section mhw-reveal" aria-label="Shop by craft">
+        <div class="craft-section-heading">
+          <div>
+            <span class="mhw-eyebrow mhw-eyebrow-onlight">Shop by Craft</span>
+            <h2 class="mhw-heading">Every Piece, Made With Purpose</h2>
+          </div>
+        </div>
+        <div class="craft-cards category-cards">
+          ${CATEGORY_CARDS.map((c) => {
+            const img = representativeImageFor(c.match);
+            return `
+            <button type="button" class="craft-card category-card" data-filter-trigger="${escapeHtml(c.label)}" aria-label="Shop ${escapeHtml(c.title)}">
+              <div class="craft-card-image category-card-image">
+                ${img
+                  ? `<img src="${escapeHtml(img.url)}" alt="" loading="lazy" width="320" height="400">`
+                  : `<div class="craft-card-image-fallback category-card-image-fallback" data-mark="${escapeHtml(initialsFor(c.title))}" aria-hidden="true"></div>`}
+              </div>
+              <div class="craft-card-body category-card-body">
+                <div class="craft-card-title category-card-title">${escapeHtml(c.title)}</div>
+                <div class="craft-card-desc category-card-desc">${escapeHtml(c.desc)}</div>
+                <span class="craft-card-cta">Shop ${escapeHtml(c.label)} &rarr;</span>
+              </div>
+            </button>`;
+          }).join('')}
+        </div>
+      </section>`;
+  }
+
+  // Reuses the already-fetched catalog data, filtered client-side by the
+  // Best Sellers collection handle — no separate network call, and never a
+  // hardcoded product list (see ShopifyClient.getAllActiveProducts()).
+  function bestSellerProducts() {
+    const all = catalogState.products || [];
+    return all.filter((p) => p.collections.some((c) => c.handle === BEST_SELLERS_HANDLE));
+  }
+
+  function renderFavorites() {
+    const favorites = bestSellerProducts();
+    return `
+      <section class="mhw-section mhw-reveal" aria-label="Customer favorites">
+        <span class="mhw-eyebrow mhw-eyebrow-onlight">Customer Favorites</span>
+        <h2 class="mhw-heading">Best Sellers</h2>
+        ${favorites.length ? `
+        <div class="favorites-grid">
+          ${favorites.map(renderCatalogCard).join('')}
+        </div>` : `
+        <p class="favorites-empty">Best sellers will appear here once available.</p>`}
+      </section>`;
+  }
+
+  function renderMilitaryEditorial() {
+    return `
+      <section class="military-editorial mhw-reveal" aria-label="Military recognition">
+        <span class="military-editorial-eyebrow">Built to Honor Service</span>
+        <h2>Military Awards Made to Be Remembered</h2>
+        <p>Custom plaques, recognition pieces and one-of-a-kind awards created for PCS, ETS, retirement and career milestones.</p>
+        <div class="military-editorial-ctas">
+          <button type="button" class="shop-hero-cta shop-hero-cta-primary" data-filter-trigger="Military Awards">Explore Military Awards</button>
+          <a href="/#contact" class="shop-hero-cta shop-hero-cta-outline">Request a Custom Award</a>
+        </div>
+      </section>`;
+  }
+
+  function renderBusinessBlock() {
+    return `
+      <section class="mhw-section mhw-reveal" aria-label="For business">
+        <div class="business-block">
+          <div>
+            <span class="mhw-eyebrow mhw-eyebrow-onlight">For Business</span>
+            <h2 class="mhw-heading">Make Your Team Look Like a Brand</h2>
+            <p class="mhw-copy">Custom embroidered uniforms, caps and branded drinkware for businesses, teams and organizations.</p>
+            <ul class="business-block-list">
+              <li>Consistent Branding</li>
+              <li>Volume Options</li>
+              <li>Personal Service</li>
+              <li>Fast Turnaround</li>
+            </ul>
+            <div class="business-block-ctas">
+              <button type="button" class="shop-hero-cta shop-hero-cta-primary" data-filter-trigger="For Business">Shop Business Products</button>
+              <a href="/#contact" class="shop-hero-cta shop-hero-cta-outline">Request a Bulk Quote</a>
+            </div>
+          </div>
+          <div class="business-block-visual" aria-hidden="true">
+            <span class="business-block-visual-mark">V</span>
+          </div>
+        </div>
+      </section>`;
+  }
+
+  function renderTrustStripCatalog() {
+    const items = [
+      'Crafted in Virginia',
+      'Proof Available Before Production',
+      'Secure Shopify Checkout',
+      'Local Pickup Available',
+      'English &amp; Spanish Support',
+    ];
+    return `
+      <div class="trust-strip-v2 mhw-reveal" aria-label="Why shop with us">
+        ${items.map((t) => `<span class="trust-strip-v2-item">${t}</span>`).join('')}
+      </div>`;
+  }
+
+  function renderNewsletter() {
+    return `
+      <section class="mhw-section mhw-reveal newsletter-block" aria-label="Follow us for updates">
+        <h2 class="mhw-heading">Stay in the Workshop</h2>
+        <p class="mhw-copy" style="margin:0 auto;">New designs, seasonal releases and special offers are coming soon.</p>
+        <a class="newsletter-social-btn" href="https://www.instagram.com/vimprintdesingsva/" target="_blank" rel="noopener noreferrer">Follow Us on Instagram</a>
+      </section>`;
+  }
+
+  function renderShopFooter() {
+    return `
+      <footer class="shop-footer" aria-label="Site footer">
+        <div class="shop-footer-inner">
+          <div class="shop-footer-brand">
+            <p>V Imprint Designs &mdash; custom embroidery, laser engraving and personalized gifts, crafted in Virginia. Hablamos Espa&ntilde;ol.</p>
+          </div>
+          <div class="shop-footer-col">
+            <h4>Shop</h4>
+            <ul>
+              <li><a href="/shop/">Shop All</a></li>
+              <li><a href="/shop/" data-filter-trigger="Military Awards">Military Awards</a></li>
+              <li><a href="/shop/" data-filter-trigger="For Business">For Business</a></li>
+              <li><a href="/#contact">Contact</a></li>
+            </ul>
+          </div>
+          <div class="shop-footer-col">
+            <h4>Support</h4>
+            <ul>
+              <li><a href="/#contact">Shipping &amp; Pickup Questions</a></li>
+              <li><a href="/#contact">Refunds &amp; Order Help</a></li>
+              <li><a href="/#contact">Contact</a></li>
+            </ul>
+          </div>
+          <div class="shop-footer-col">
+            <h4>Policies</h4>
+            <ul>
+              <li><a href="https://checkout.shopify.com/83130417401/policies/45125665017.html?locale=en" target="_blank" rel="noopener noreferrer">Shipping Policy</a></li>
+              <li><a href="https://checkout.shopify.com/83130417401/policies/45125468409.html?locale=en" target="_blank" rel="noopener noreferrer">Refund Policy</a></li>
+              <li><a href="https://checkout.shopify.com/83130417401/policies/44775538937.html?locale=en" target="_blank" rel="noopener noreferrer">Privacy Policy</a></li>
+              <li><a href="https://checkout.shopify.com/83130417401/policies/45125959929.html?locale=en" target="_blank" rel="noopener noreferrer">Terms of Service</a></li>
+            </ul>
+          </div>
+          <div class="shop-footer-col">
+            <h4>Visit</h4>
+            <ul>
+              <li>Local Pickup Available &mdash; Newport News, VA</li>
+              <li>Hablamos Espa&ntilde;ol</li>
+            </ul>
+          </div>
+        </div>
+        <div class="shop-footer-bottom">
+          <span>&copy; ${new Date().getFullYear()} V Imprint Designs. All rights reserved.</span>
+          <div class="shop-footer-social">
+            <a href="https://www.facebook.com/imprintdesingsVA/" target="_blank" rel="noopener noreferrer">Facebook</a>
+            <a href="https://www.instagram.com/vimprintdesingsva/" target="_blank" rel="noopener noreferrer">Instagram</a>
+          </div>
+        </div>
+      </footer>`;
   }
 
   function renderCatalog() {
@@ -306,12 +536,18 @@
 
     root.innerHTML = `
       <div class="catalog">
-        <div class="catalog-header">
-          <h1>Shop All</h1>
-          <p>Personalized, laser-engraved &amp; embroidered gifts — made to order.</p>
+        ${renderShopHero()}
+        ${renderCategoryCards()}
+        ${renderFavorites()}
+
+        <div class="catalog-header mhw-reveal" id="catalogGridAnchor">
+          <span class="mhw-eyebrow mhw-eyebrow-onlight">Explore the Collection</span>
+          <h1 class="mhw-sr-only">Shop All &mdash; V Imprint Designs</h1>
+          <p style="font-family:var(--fd);font-size:clamp(1.8rem,3vw,2.4rem);font-weight:600;color:var(--mhw-body);margin-bottom:8px;">Explore the Collection</p>
+          <p>Personalized, laser-engraved &amp; embroidered gifts &mdash; made to order.</p>
         </div>
 
-        <div class="catalog-filters" role="tablist" aria-label="Filter products by category">
+        <div class="catalog-filters mhw-reveal" role="tablist" aria-label="Filter products by category">
           ${CATALOG_FILTERS.map(
             (f) => `
             <button type="button" class="catalog-filter-btn ${f.label === catalogState.activeFilter ? 'active' : ''}"
@@ -321,17 +557,41 @@
           ).join('')}
         </div>
 
+        <div class="catalog-toolbar mhw-reveal">
+          <div class="catalog-resultsbar" style="margin:0;">
+            <span class="catalog-results-count" id="catalogResultsCount" role="status" aria-live="polite">
+              Showing ${products.length} product${products.length === 1 ? '' : 's'}
+            </span>
+            ${catalogState.activeFilter !== 'All' ? `<button type="button" class="catalog-clear-btn" id="catalogClearBtn">Clear filters</button>` : ''}
+          </div>
+          <label>
+            <span class="mhw-sr-only">Sort products</span>
+            <select class="catalog-sort" id="catalogSort" aria-label="Sort products">
+              <option value="featured" ${catalogState.sort === 'featured' ? 'selected' : ''}>Featured</option>
+              <option value="price-asc" ${catalogState.sort === 'price-asc' ? 'selected' : ''}>Price: Low to High</option>
+              <option value="price-desc" ${catalogState.sort === 'price-desc' ? 'selected' : ''}>Price: High to Low</option>
+            </select>
+          </label>
+        </div>
+
         ${products.length ? `
-        <div class="catalog-grid">
+        <div class="catalog-grid mhw-reveal">
           ${products.map(renderCatalogCard).join('')}
         </div>` : `
         <div class="catalog-empty">
           <p>No products found in this category yet.</p>
         </div>`}
+
+        ${renderMilitaryEditorial()}
+        ${renderBusinessBlock()}
+        ${renderTrustStripCatalog()}
+        ${renderNewsletter()}
+        ${renderShopFooter()}
       </div>
     `;
 
     bindCatalogEvents();
+    initScrollReveal();
   }
 
   function renderCatalogCard(p) {
@@ -344,16 +604,21 @@
     const href = `/shop/?handle=${encodeURIComponent(p.handle)}`;
     const primaryCollection = pickPrimaryCollection(p.collections);
     const collectionLabel = primaryCollection ? primaryCollection.title : '';
+    // "Made to Order" — a product tagged accordingly in Shopify that is
+    // neither quote-only nor sold out. Derived entirely from p.tags, which
+    // the catalog query already fetches — no new API call.
+    const isMadeToOrder = !p.isQuoteOnly && !p.soldOut && ShopifyClient.hasTag(p, 'made-to-order');
 
     return `
       <a class="catalog-card" href="${escapeHtml(href)}" data-handle="${escapeHtml(p.handle)}">
         <div class="catalog-card-image">
           ${p.image
             ? `<img src="${escapeHtml(p.image.url)}" alt="${escapeHtml(p.image.altText)}" loading="lazy" width="400" height="400">`
-            : `<div class="catalog-card-image-empty" aria-hidden="true"></div>`}
+            : `<div class="catalog-card-image-empty" aria-hidden="true" data-initials="${escapeHtml(initialsFor(p.title))}"></div>`}
           ${p.isBestSeller ? '<span class="catalog-badge catalog-badge-gold">Best Seller</span>' : ''}
-          ${p.isQuoteOnly ? '<span class="catalog-badge catalog-badge-outline">Custom Quote</span>' : ''}
+          ${p.isQuoteOnly ? '<span class="catalog-badge catalog-badge-outline">Request a Quote</span>' : ''}
           ${p.soldOut && !p.isQuoteOnly ? '<span class="catalog-badge catalog-badge-muted">Sold Out</span>' : ''}
+          ${isMadeToOrder ? '<span class="catalog-badge catalog-badge-made-to-order">Made to Order</span>' : ''}
         </div>
         <div class="catalog-card-body">
           ${collectionLabel ? `<span class="catalog-card-collection">${escapeHtml(collectionLabel)}</span>` : ''}
@@ -366,6 +631,16 @@
       </a>`;
   }
 
+  // Fase B: activates a filter exactly as the real filter button click
+  // would (same state mutation, same re-render) — this is the single
+  // shared path used by the filter row AND every alternate trigger
+  // (hero CTA, category cards, editorial CTA), never a duplicate filter.
+  function activateFilter(label) {
+    catalogState.activeFilter = label;
+    renderCatalog();
+    document.getElementById('catalogGridAnchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   function bindCatalogEvents() {
     root.querySelectorAll('.catalog-filter-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -373,6 +648,64 @@
         renderCatalog();
       });
     });
+
+    // Hero primary CTA: scroll to Best Sellers (Customer Favorites) section,
+    // no filter change — per spec's "Shop Best Sellers" button.
+    document.getElementById('heroShopCta')?.addEventListener('click', () => {
+      root.querySelector('.favorites-grid, .favorites-empty')?.closest('section')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    // All other alternate triggers (hero secondary CTA, category cards,
+    // editorial band CTA, business block CTA, footer links) share one
+    // handler: activate the matching filter button's own filter, then
+    // scroll to the grid. Never a duplicate filter implementation.
+    root.querySelectorAll('[data-filter-trigger]').forEach((el) => {
+      el.addEventListener('click', (e) => {
+        if (el.tagName === 'A') e.preventDefault();
+        activateFilter(el.dataset.filterTrigger);
+      });
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          activateFilter(el.dataset.filterTrigger);
+        }
+      });
+    });
+
+    document.getElementById('catalogClearBtn')?.addEventListener('click', () => activateFilter('All'));
+
+    document.getElementById('catalogSort')?.addEventListener('change', (e) => {
+      catalogState.sort = e.target.value;
+      renderCatalog();
+    });
+
+    // Newsletter: no real email integration exists yet (no Shopify Email/
+    // Klaviyo connected). No form, no email input, no fake confirmation —
+    // this section only links out to Instagram until a real integration
+    // is connected.
+  }
+
+  // ── Scroll-reveal (IntersectionObserver, no library) ────
+  function initScrollReveal() {
+    const els = root.querySelectorAll('.mhw-reveal');
+    if (!els.length) return;
+    if (!('IntersectionObserver' in window)) {
+      els.forEach((el) => el.classList.add('mhw-visible'));
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('mhw-visible');
+            io.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.08, rootMargin: '0px 0px -40px 0px' }
+    );
+    els.forEach((el) => io.observe(el));
   }
 
   function initDefaultSelection() {
@@ -549,16 +882,19 @@
             ${compareAt ? `<span class="compare-at">${formatMoney(compareAt, currency)}</span>` : ''}
           </div>
 
-          <div class="avail-badge ${inStock ? 'in-stock' : 'out-stock'}">
-            <span class="dot"></span>${inStock ? 'In stock' : 'Currently unavailable'}
+          <div class="avail-badge ${state.isQuoteOnly ? 'quote-required' : (inStock ? 'in-stock' : 'out-stock')}">
+            <span class="dot"></span>${state.isQuoteOnly ? 'Custom Quote Required' : (inStock ? 'In stock' : 'Currently unavailable')}
           </div>
 
           <div class="product-desc">${p.descriptionHtml || ''}</div>
 
           <form id="productForm" novalidate>
+            <div class="process-step-label"><span class="process-step-num">1</span>Choose your options</div>
             ${renderOptionGroups()}
-            ${state.isQuoteOnly ? '' : renderCustomizationFields()}
 
+            ${state.isQuoteOnly ? '' : `<div class="process-step-label"><span class="process-step-num">2</span>Add personalization</div>${renderCustomizationFields()}`}
+
+            <div class="process-step-label"><span class="process-step-num">${state.isQuoteOnly ? '2' : '3'}</span>${state.isQuoteOnly ? 'Request a Custom Quote' : 'Add to cart'}</div>
             <div class="opt-group">
               ${state.isQuoteOnly ? '' : `
               <span class="opt-label">Quantity</span>
@@ -577,12 +913,103 @@
             </div>
           </form>
 
+          ${renderTrustStrip()}
           ${renderMetaNote()}
+          ${renderPdpAccordions()}
         </div>
       </div>
+      ${renderStickyBar(inStock)}
     `;
 
     bindProductEvents();
+  }
+
+  // Accordion sections built ONLY from real, already-fetched data — a
+  // section is omitted entirely when its backing field/metafield is empty,
+  // never filled with invented copy. Purely a visual regrouping of existing
+  // content; no new fields, no changed logic.
+  function renderPdpAccordions() {
+    const p = state.product;
+    const mf = p.metafields;
+    const sections = [];
+
+    if (p.descriptionHtml) {
+      sections.push({ title: 'Product Details', bodyHtml: p.descriptionHtml });
+    }
+    const personalizationParts = [];
+    if (mf.allowCustomText) personalizationParts.push('Custom engraving text available at checkout.');
+    if (mf.allowFileUpload) personalizationParts.push('Upload your own logo or artwork (PNG or JPG, up to 20MB).');
+    if (mf.allowProofRequest) personalizationParts.push('Request a free digital proof before production begins.');
+    if (mf.personalizationInstructions) personalizationParts.push(mf.personalizationInstructions);
+    if (personalizationParts.length) {
+      sections.push({ title: 'Personalization', bodyHtml: personalizationParts.map((t) => `<p>${escapeHtml(t)}</p>`).join('') });
+    }
+    if (mf.productionTime || mf.bulkMinimum) {
+      const parts = [];
+      if (mf.productionTime) parts.push(`<p>Production time (before shipping): ${escapeHtml(mf.productionTime)}</p>`);
+      if (mf.bulkMinimum) parts.push(`<p>Bulk pricing available from ${escapeHtml(String(mf.bulkMinimum))}+ units &mdash; contact us for a quote.</p>`);
+      sections.push({ title: 'Production Time', bodyHtml: parts.join('') });
+    }
+    // Shipping & Pickup — the trust strip already states these facts
+    // (Crafted in Virginia / Local Pickup Available / Secure Checkout); this
+    // section only regroups that same real copy, nothing invented.
+    sections.push({
+      title: 'Shipping & Pickup',
+      bodyHtml: '<p>Crafted to order in Virginia. Local pickup is available, or we ship nationwide via a secure Shopify checkout.</p>',
+    });
+    // No care_instructions field exists in the product data (confirmed
+    // against the metafield inventory) — a Care Instructions section is
+    // intentionally NOT built here, since it would have no real content.
+
+    if (!sections.length) return '';
+
+    return `
+      <div class="pdp-accordion" id="pdpAccordion">
+        ${sections.map((s, i) => `
+          <div class="pdp-accordion-item ${i === 0 ? 'open' : ''}" data-accordion-index="${i}">
+            <button type="button" class="pdp-accordion-trigger" aria-expanded="${i === 0}" aria-controls="pdpPanel${i}">
+              ${escapeHtml(s.title)}<span class="chev" aria-hidden="true">&#9662;</span>
+            </button>
+            <div class="pdp-accordion-panel" id="pdpPanel${i}">
+              <div class="pdp-accordion-panel-inner">${s.bodyHtml}</div>
+            </div>
+          </div>`).join('')}
+      </div>`;
+  }
+
+  function bindPdpAccordionEvents() {
+    root.querySelectorAll('.pdp-accordion-trigger').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const item = btn.closest('.pdp-accordion-item');
+        const open = item.classList.toggle('open');
+        btn.setAttribute('aria-expanded', String(open));
+      });
+    });
+  }
+
+  // Sticky mobile Add-to-Cart / Quote bar — mirrors the existing form
+  // control exactly (same submit path / same quote-only CTA), never a
+  // second cart-mutation code path. Hidden entirely on desktop via CSS.
+  function renderStickyBar(inStock) {
+    if (state.isQuoteOnly) {
+      return `<div class="pdp-sticky-bar active" id="pdpStickyBar">${renderQuoteOnlyCta('Sticky')}</div>`;
+    }
+    return `
+      <div class="pdp-sticky-bar active" id="pdpStickyBar">
+        <button type="button" class="btn-add-cart" id="stickyAddCartBtn" ${!inStock || state.uploadStatus === 'uploading' ? 'disabled' : ''}>
+          ${inStock ? (state.uploadStatus === 'uploading' ? 'Uploading file…' : 'Add to Cart') : 'Sold Out'}
+        </button>
+      </div>`;
+  }
+
+  function bindStickyBarEvents() {
+    // The sticky button triggers the SAME form submit handler as the real
+    // Add to Cart button — no duplicate add-to-cart logic.
+    document.getElementById('stickyAddCartBtn')?.addEventListener('click', () => {
+      document.getElementById('productForm')?.requestSubmit
+        ? document.getElementById('productForm').requestSubmit()
+        : document.getElementById('addCartBtn')?.click();
+    });
   }
 
   function renderOptionGroups() {
@@ -619,7 +1046,7 @@
   // the product is never added to the Shopify cart through any code path —
   // there is no cart-mutation handler wired to this element at all, unlike
   // the real #productForm submit which calls handleAddToCart().
-  function renderQuoteOnlyCta() {
+  function renderQuoteOnlyCta(idSuffix) {
     const p = state.product;
     const productCode = p.metafields.productCode || '';
     const productUrl = window.location.href.split('?')[0] + (p.handle ? `?handle=${encodeURIComponent(p.handle)}` : '');
@@ -629,11 +1056,12 @@
       url: productUrl,
     });
     const quoteHref = `/?${params.toString()}#contact`;
+    const id = idSuffix ? `quoteOnlyBtn${idSuffix}` : 'quoteOnlyBtn';
     return `
-      <a href="${escapeHtml(quoteHref)}" class="btn-add-cart quote-only-cta" id="quoteOnlyBtn">
+      <a href="${escapeHtml(quoteHref)}" class="btn-add-cart quote-only-cta" id="${id}">
         Request a Custom Quote
       </a>
-      <p class="hint quote-only-hint">This is a fully custom, made-to-order item. Shipping and final pricing are confirmed after your project is defined — it can't be added to the cart directly.</p>`;
+      ${idSuffix ? '' : '<p class="hint quote-only-hint">This is a fully custom, made-to-order item. Shipping and final pricing are confirmed after your project is defined — it can\'t be added to the cart directly.</p>'}`;
   }
 
   function renderCustomizationFields() {
@@ -689,6 +1117,13 @@
       return `<p class="upload-status error" role="alert">${escapeHtml(state.uploadError)}</p>`;
     }
     return '';
+  }
+
+  // Static trust strip — text only, no timelines/guarantees beyond what the
+  // real metafields already state elsewhere on the page (renderMetaNote).
+  function renderTrustStrip() {
+    const items = ['Made to Order', 'Digital Proof Available', 'Crafted in Virginia', 'Secure Checkout', 'Local Pickup Available'];
+    return `<div class="trust-strip">${items.map((t) => `<span class="trust-strip-item">${escapeHtml(t)}</span>`).join('')}</div>`;
   }
 
   function renderMetaNote() {
@@ -787,6 +1222,8 @@
 
   function bindProductEvents() {
     bindGalleryEvents();
+    bindPdpAccordionEvents();
+    bindStickyBarEvents();
 
     // Option swatches — switching color/size must NOT clear what the shopper
     // already entered (engraving text, proof checkbox, quantity).
@@ -1089,8 +1526,17 @@
   function renderCartDrawer() {
     const cart = state.cart;
     const qty = cart ? cart.totalQuantity : 0;
+    const changed = cartCountEl.textContent !== String(qty);
     cartCountEl.textContent = qty;
     cartCountEl.style.display = qty > 0 ? 'flex' : 'none';
+    // Light visual confirmation on the cart counter when it actually
+    // changes; respects prefers-reduced-motion via the CSS media query.
+    if (changed && qty > 0) {
+      cartCountEl.classList.remove('mhw-bump');
+      // Force reflow so the animation restarts on consecutive quick adds.
+      void cartCountEl.offsetWidth;
+      cartCountEl.classList.add('mhw-bump');
+    }
 
     if (!cart || !cart.lines.nodes.length) {
       cartBodyEl.innerHTML = `<p class="cart-empty">Your cart is empty.</p>`;

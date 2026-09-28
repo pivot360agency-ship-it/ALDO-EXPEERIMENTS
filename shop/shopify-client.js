@@ -57,6 +57,7 @@ const ShopifyClient = (() => {
         title
         handle
         descriptionHtml
+        productType
         tags
         seo {
           title
@@ -175,6 +176,7 @@ const ShopifyClient = (() => {
           title
           handle
           tags
+          productType
           featuredImage {
             id
             url
@@ -242,6 +244,7 @@ const ShopifyClient = (() => {
       handle: raw.handle,
       title: raw.title,
       tags: raw.tags || [],
+      productType: raw.productType || '',
       image: raw.featuredImage
         ? { url: raw.featuredImage.url, altText: altTextFor(raw.featuredImage, raw.title, null) }
         : null,
@@ -341,6 +344,7 @@ const ShopifyClient = (() => {
       handle: raw.handle,
       title: raw.title,
       descriptionHtml: raw.descriptionHtml,
+      productType: raw.productType || '',
       tags: raw.tags || [],
       seo: {
         title: (raw.seo && raw.seo.title) || null,
@@ -378,6 +382,35 @@ const ShopifyClient = (() => {
   function hasTag(product, tag) {
     return !!(product && Array.isArray(product.tags) &&
       product.tags.some((t) => (t || '').toLowerCase() === tag.toLowerCase()));
+  }
+
+  // Fase 8: derives a placeholder category from data the API already gives
+  // us — productType, tags, collection titles — never from a hardcoded
+  // Shopify product/variant ID. Order matters: more specific signals (pet,
+  // military, embroidery) are checked before the broader "business"/"gifts"
+  // buckets so a product that is both, e.g., a military keepsake tagged
+  // "gifts", lands in the more specific placeholder.
+  const PLACEHOLDER_RULES = [
+    { key: 'pet', match: /pet/i },
+    { key: 'military', match: /military|veteran|memorial/i },
+    { key: 'embroidery', match: /embroider/i },
+    { key: 'laser', match: /laser|engrav/i },
+    { key: 'business', match: /business|card|sign|portfolio|signage|accessor/i },
+    { key: 'gifts', match: /gift|ornament|frame|coaster|tray|opener|pen|board|wine|tag|keychain/i },
+  ];
+
+  function placeholderCategoryFor(product) {
+    if (!product) return 'default';
+    const haystackParts = [
+      product.productType || '',
+      ...(Array.isArray(product.tags) ? product.tags : []),
+      ...((product.collections || []).map((c) => c.title || '')),
+    ];
+    const haystack = haystackParts.join(' ').toLowerCase();
+    for (const rule of PLACEHOLDER_RULES) {
+      if (rule.match.test(haystack)) return rule.key;
+    }
+    return 'default';
   }
 
   // ── CART MUTATIONS ───────────────────────────────────────
@@ -560,6 +593,7 @@ const ShopifyClient = (() => {
     getCart,
     altTextFor,
     hasTag,
+    placeholderCategoryFor,
     ShopifyError,
   };
 })();

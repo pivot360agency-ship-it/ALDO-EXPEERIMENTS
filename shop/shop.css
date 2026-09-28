@@ -627,26 +627,41 @@ a { text-decoration: none; color: inherit; }
 }
 
 /* ══════════ Fase B: catalog page surface ══════════
-   The catalog view (hero + category cards + editorial band) sits on the
-   new light "Modern Heritage Workshop" surface; the product detail view
-   is untouched and keeps the original dark shop-body background. This
-   class is toggled onto <body> only while the catalog view is showing. */
+   The catalog view (hero + category cards + editorial band) now sits on
+   the same dark charcoal surface as the product detail view and the rest
+   of the site (header, gold ticker, footer), instead of a light ivory
+   page — the user asked for one consistent dark background throughout,
+   not just inside the hero panel. Cards (product cards, category cards,
+   the "For Business" block) KEEP their own light ivory/warm-gray
+   background — only the page-level text (headings, eyebrows, filters,
+   breadcrumb, trust strip, newsletter copy) that sits directly on the
+   page background is flipped to a light color here so it stays legible
+   on dark. Nothing inside a light card needed to change. */
 body.shop-body.catalog-view {
-  background: var(--mhw-white);
-  color: var(--mhw-body);
+  background: var(--mhw-charcoal);
+  color: var(--cream);
 }
-.catalog-view .catalog-header h1 { color: var(--mhw-body); }
-.catalog-view .catalog-header p { color: var(--mhw-muted); }
+.catalog-view .catalog-header h1 { color: var(--mhw-white); }
+.catalog-view .catalog-header p { color: rgba(247,244,237,.68); }
 .catalog-view .catalog-filter-btn {
-  color: var(--mhw-muted); border-color: var(--mhw-warm-gray);
+  color: rgba(247,244,237,.6); border-color: rgba(247,244,237,.2);
 }
-.catalog-view .catalog-filter-btn:hover { color: var(--mhw-body); border-color: var(--mhw-gold-muted); }
+.catalog-view .catalog-filter-btn:hover { color: var(--mhw-white); border-color: var(--mhw-gold); }
 .catalog-view .catalog-filter-btn.active {
   background: var(--mhw-gold); color: var(--mhw-charcoal); border-color: var(--mhw-gold);
 }
-.catalog-view .catalog-empty { color: var(--mhw-muted); }
-.catalog-view .shop-breadcrumb { color: var(--mhw-muted); }
-.catalog-view .shop-breadcrumb a { color: var(--mhw-gold-muted); }
+.catalog-view .catalog-empty { color: rgba(247,244,237,.6); }
+.catalog-view .shop-breadcrumb { color: rgba(247,244,237,.55); }
+.catalog-view .shop-breadcrumb a { color: var(--mhw-gold); }
+.catalog-view .mhw-copy { color: rgba(247,244,237,.68); }
+.catalog-view .mhw-eyebrow-onlight { color: var(--mhw-gold); }
+.catalog-view .catalog-results-count { color: rgba(247,244,237,.6); }
+.catalog-view .favorites-empty { color: rgba(247,244,237,.6); }
+.catalog-view .trust-strip-v2 { border-color: rgba(247,244,237,.14); }
+.catalog-view .trust-strip-v2-item { color: rgba(247,244,237,.68); }
+.catalog-view .catalog-sort {
+  background: var(--mhw-white); color: var(--mhw-body); border-color: transparent;
+}
 
 /* ══════════ Shop hero (Fase B) ══════════ */
 .shop-hero {

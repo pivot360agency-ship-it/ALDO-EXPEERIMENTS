@@ -51,11 +51,13 @@
   const QUOTE_ONLY_TAG = 'quote-only';
 
   const CATALOG_FILTERS = [
-    { label: 'All Products', match: null },
-    { label: 'Military Awards', match: 'military-awards' },
-    { label: 'Business Uniforms', match: 'business-uniforms' },
+    { label: 'All', match: null },
     { label: 'Tumblers & Gifts', match: 'tumblers-gifts' },
+    { label: 'Military Awards', match: 'military-awards' },
+    { label: 'Embroidered Apparel', match: 'embroidered-apparel' },
+    { label: 'Business Uniforms', match: 'business-uniforms' },
     { label: 'Pet Memorials', match: 'pet-memorials' },
+    { label: 'For Business', match: 'for-business' },
   ];
 
   const catalogState = {

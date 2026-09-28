@@ -350,6 +350,9 @@
   function renderShopHero() {
     return `
       <section class="shop-hero-v2 shop-hero" aria-label="Shop introduction">
+        <div class="shop-hero-v2-bg" aria-hidden="true">
+          <img src="/assets/images/v-imprint-designs-custom-embroidery-and-laser-engr.webp" alt="" loading="eager" fetchpriority="high" width="1717" height="916">
+        </div>
         <div class="shop-hero-v2-copy">
           <span class="shop-hero-v2-eyebrow">Personalized With Purpose</span>
           <p class="shop-hero-v2-heading"><span>Made Personal.</span><span>Made to Last.</span></p>
@@ -614,7 +617,9 @@
         <div class="catalog-card-image">
           ${p.image
             ? `<img src="${escapeHtml(p.image.url)}" alt="${escapeHtml(p.image.altText)}" loading="lazy" width="400" height="400">`
-            : `<div class="catalog-card-image-empty" aria-hidden="true" data-initials="${escapeHtml(initialsFor(p.title))}"></div>`}
+            : `<div class="catalog-card-image-empty" aria-hidden="true">
+                 <img class="catalog-card-placeholder-img" src="/shop/assets/placeholders/placeholder-${escapeHtml(ShopifyClient.placeholderCategoryFor(p))}.svg" alt="" loading="lazy" width="400" height="400">
+               </div>`}
           ${p.isBestSeller ? '<span class="catalog-badge catalog-badge-gold">Best Seller</span>' : ''}
           ${p.isQuoteOnly ? '<span class="catalog-badge catalog-badge-outline">Request a Quote</span>' : ''}
           ${p.soldOut && !p.isQuoteOnly ? '<span class="catalog-badge catalog-badge-muted">Sold Out</span>' : ''}
@@ -789,9 +794,12 @@
 
   function renderGallery(p, images, activeImg, featuredUrl) {
     if (!images.length || !images[0].url) {
+      const category = ShopifyClient.placeholderCategoryFor(p);
       return `
         <div class="product-gallery">
-          <div class="product-gallery-main product-gallery-empty" aria-hidden="true"></div>
+          <div class="product-gallery-main product-gallery-empty" aria-hidden="true">
+            <img class="catalog-card-placeholder-img" src="/shop/assets/placeholders/placeholder-${escapeHtml(category)}.svg" alt="" loading="eager" width="800" height="800">
+          </div>
         </div>`;
     }
 

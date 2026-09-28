@@ -166,6 +166,10 @@ a { text-decoration: none; color: inherit; }
   aspect-ratio: 4 / 5; border-radius: 4px;
   background: #111111; border: 1px solid var(--border);
   grid-column: 1 / -1;
+  display: flex; align-items: center; justify-content: center;
+}
+.product-gallery-empty .catalog-card-placeholder-img {
+  width: 60%; height: 60%; object-fit: contain;
 }
 .product-gallery-main {
   grid-column: 2; grid-row: 1;
@@ -417,6 +421,9 @@ a { text-decoration: none; color: inherit; }
   min-width: 18px; height: 18px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center; font-weight: 700;
 }
+.cart-toggle-icon {
+  color: var(--gold); flex-shrink: 0;
+}
 
 .cart-drawer {
   position: fixed; top: 0; right: -420px; width: 100%; max-width: 400px;
@@ -528,6 +535,9 @@ a { text-decoration: none; color: inherit; }
   display: grid; grid-template-columns: repeat(3, 1fr);
   gap: 28px;
 }
+@media (min-width: 1440px) {
+  .catalog-grid { grid-template-columns: repeat(4, 1fr); gap: 26px; }
+}
 @media (max-width: 1024px) {
   .catalog-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; }
 }
@@ -536,6 +546,16 @@ a { text-decoration: none; color: inherit; }
 }
 @media (max-width: 420px) {
   .catalog-grid { grid-template-columns: 1fr; gap: 16px; }
+}
+/* Mobile: keep card height compact so 2-up (or 1-up on very small
+   screens) never forces a product to fill nearly the whole viewport —
+   tighter padding, smaller title, less vertical rhythm. */
+@media (max-width: 600px) {
+  .catalog-card-body { padding: 12px 14px; gap: 4px; }
+  .catalog-card-title { font-size: 0.92rem; line-height: 1.3; }
+  .catalog-card-price { font-size: 0.82rem; }
+  .catalog-card-cta { padding-top: 8px; font-size: 0.66rem; }
+  .catalog-card-collection { font-size: 0.6rem; }
 }
 
 .catalog-card {
@@ -558,15 +578,11 @@ a { text-decoration: none; color: inherit; }
 }
 .catalog-card-image-empty {
   width: 100%; height: 100%; position: relative;
-  background:
-    repeating-linear-gradient(135deg, rgba(11,11,11,.035) 0px, rgba(11,11,11,.035) 2px, transparent 2px, transparent 18px),
-    linear-gradient(135deg, var(--mhw-warm-gray) 0%, var(--mhw-ivory) 100%);
   display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
 }
-.catalog-card-image-empty::after {
-  content: attr(data-initials);
-  font-family: var(--fd); font-size: 2.4rem; font-weight: 600;
-  color: var(--mhw-gold-muted); opacity: .55; letter-spacing: 0.04em;
+.catalog-card-placeholder-img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
 }
 .catalog-badge {
   position: absolute; top: 10px; left: 10px;
@@ -883,8 +899,27 @@ body.shop-body.catalog-view {
   opacity: 0; transform: translateY(14px);
   animation: mhwFadeUp .5s cubic-bezier(.2,.7,.3,1) .05s forwards;
 }
+/* Background photo — same image used on the main site's hero
+   (custom embroidery + laser engraving). Sits behind everything via
+   negative z-index, cover-cropped, with a dark scrim on top of it so
+   the copy and the visual panel both stay fully legible. */
+.shop-hero-v2-bg {
+  position: absolute; inset: 0; z-index: 0;
+}
+.shop-hero-v2-bg img {
+  width: 100%; height: 100%; object-fit: cover; object-position: 55% center;
+  display: block;
+}
+.shop-hero-v2-bg::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(100deg,
+    rgba(11,11,11,.94) 0%,
+    rgba(11,11,11,.86) 38%,
+    rgba(11,11,11,.62) 62%,
+    rgba(11,11,11,.4) 100%);
+}
 .shop-hero-v2::before {
-  content: ''; position: absolute; inset: 0; pointer-events: none;
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
   background:
     radial-gradient(circle at 85% 15%, rgba(212,167,44,.14), transparent 45%),
     repeating-linear-gradient(115deg, rgba(247,244,237,.025) 0px, rgba(247,244,237,.025) 1px, transparent 1px, transparent 26px);

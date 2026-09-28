@@ -1,9 +1,30 @@
-# Changelog — V Imprint Designs Shop (13 Fases + ronda headless 2026-09-28)
+# Changelog — V Imprint Designs Shop (13 Fases + rondas headless 2026-09-28)
 
-Fecha: 2026-09-25 (13 fases originales) + 2026-09-28 (ronda de cierre headless).
+Fecha: 2026-09-25 (13 fases originales) + 2026-09-28 (ronda de cierre headless + ronda de activación/publicación + ronda de corrección de colección principal).
 Base: despliegue previamente confirmado en producción (commit `411dbf3`, verificado por el dueño como funcionando correctamente en Netlify antes de iniciar este trabajo).
 
-## Ronda 2026-09-28 — cierre headless
+## Ronda 2026-09-28 (3) — activación, publicación y corrección de colección principal
+
+**Shopify — activación y publicación (autorización explícita del propietario):**
+- Se agregaron TU-020, TU-040, EM-001, EM-002 y EM-003 a la colección "For Business" (sin retirar ninguna asignación existente).
+- Se activaron (DRAFT → ACTIVE) los 11 productos restantes: AW-001 a AW-005, EM-001 a EM-003, TU-040, PET-001, PET-002. TU-020 no se modificó (ya estaba ACTIVE).
+- Se publicaron los 12 productos exclusivamente en el canal headless `vimprintdesigns-web` (`gid://shopify/Publication/204775817465`). No se tocó ningún otro canal (Online Store, Shop, Point of Sale).
+- Verificación posterior confirmó: 12/12 ACTIVE, 12/12 publicados en `vimprintdesigns-web`, ningún precio/SKU/peso/inventario/tracking/metafield cambió, AW-002 conserva `quote-only` con su única variante y SKU, TU-040 permanece tracked/qty 0/DENY (Sold Out), el resto de productos made-to-order permanecen sin tracking, Best Sellers sigue conteniendo únicamente TU-020, ningún producto tiene imágenes agregadas (0 imágenes salvo TU-020, que conserva sus 5 originales).
+
+**Código — corrección de colección principal mostrada (bug encontrado y corregido esta ronda):**
+- `shop/shopify-client.js`: la consulta de producto (`PRODUCT_QUERY`) pedía `collections(first: 1)` — solo la primera collection en el orden arbitrario de Shopify, que en producción resultaba ser "Home page" (técnica) en vez de la colección comercial real. Se amplió a `collections(first: 5)`.
+- `shop/shop.js`: se agregó `NON_COMMERCIAL_COLLECTION_HANDLES = ['frontpage', 'best-sellers']` y la función `pickPrimaryCollection()`, que descarta esas colecciones técnicas y devuelve la primera colección comercial real. Se reemplazó el acceso directo `collections[0]` en dos lugares: el breadcrumb de producto y la etiqueta de colección en la tarjeta del catálogo. TU-020 sigue perteneciendo a Home page y Best Sellers (no se retiró de ninguna), pero ahora ambos lugares muestran "Tumblers & Gifts".
+- No se tocó ninguna otra lógica (filtros, carrito, personalización, SEO técnico).
+
+**Pruebas:**
+- Se corrigieron dos fixtures de prueba desactualizados (`mock_catalog.py`, `mock_data_tu020.py`) para incluir "Home page" como primera colección en el listado, replicando el orden real de producción, y así ejercer realmente el nuevo selector de colección principal.
+- Se agregaron aserciones explícitas confirmando "Tumblers & Gifts" (nunca "Home page" ni "Best Sellers") en la tarjeta del catálogo y en el breadcrumb de producto.
+- Suite completa re-ejecutada: 12/13 scripts pasan limpiamente (catálogo, navegación/breadcrumb, Fase 1, quote-only/prefill, personalización, responsive, accesibilidad, SEO, variant-resolution, deployment-readiness). El único script que no pasa (`test_multioption.py`) depende de acceso de red en vivo a la Storefront API real (no tiene mocks de GraphQL configurados) — limitación de entorno ya documentada, no una regresión de este cambio.
+- 0 errores de consola en todas las pruebas mockeadas.
+
+**Git/deploy:** sin remote configurado en este entorno — no se publicó nada automáticamente. Se entrega ZIP actualizado con los 2 archivos corregidos.
+
+## Ronda 2026-09-28 (1) — cierre headless
 
 - **Shopify (colecciones):** se agregaron descripción y SEO title/description a las 8 colecciones (Home page, Tumblers & Gifts, Military Awards, Embroidered Apparel, Business Uniforms, Pet Memorials, For Business, Best Sellers), que estaban vacías. No se tocaron productos asignados, tipo de colección ni orden — todas las asignaciones ya coincidían con lo especificado.
 - **Shopify (productos):** auditoría de los 12 productos confirmó que SEO, tags, categorías, metafields de personalización y colecciones ya estaban completos desde la ronda anterior — no se requirió ninguna mutación.

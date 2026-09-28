@@ -75,8 +75,20 @@ fbq('track', 'PageView');
 
 <!-- Cart toggle -->
 <button class="cart-toggle" id="cartToggle" aria-label="Open cart">
-  🛒 Cart <span class="cart-count" id="cartCount" style="display:none;">0</span>
+  <svg class="cart-toggle-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M6 8h12l-1.2 11.2a2 2 0 0 1-2 1.8H9.2a2 2 0 0 1-2-1.8L6 8z"/>
+    <path d="M9 8V6a3 3 0 0 1 6 0v2"/>
+  </svg>
+  Cart <span class="cart-count" id="cartCount" style="display:none;">0</span>
 </button>
+
+<!-- Gold ticker band — reuses the exact root-page markup/animation, with
+     prefers-reduced-motion handling added for this /shop copy (see shop.css) -->
+<div class="ticker" aria-hidden="true">
+  <div class="ticker-inner">
+    <span>Custom Embroidery</span><span class="tdot">◆</span><span>Laser Engraving</span><span class="tdot">◆</span><span>Military Awards</span><span class="tdot">◆</span><span>Personalized Gifts</span><span class="tdot">◆</span><span>Business Orders</span><span class="tdot">◆</span><span>No Minimum Orders</span><span class="tdot">◆</span><span>Fast Turnaround</span><span class="tdot">◆</span><span>Hablamos Español</span><span class="tdot">◆</span><span>Custom Embroidery</span><span class="tdot">◆</span><span>Laser Engraving</span><span class="tdot">◆</span><span>Military Awards</span><span class="tdot">◆</span><span>Personalized Gifts</span><span class="tdot">◆</span><span>Business Orders</span><span class="tdot">◆</span><span>No Minimum Orders</span><span class="tdot">◆</span><span>Fast Turnaround</span><span class="tdot">◆</span><span>Hablamos Español</span>
+  </div>
+</div>
 
 <main class="shop-main">
   <p class="shop-breadcrumb" id="shopBreadcrumb"><a href="/">Home</a> / Shop</p>

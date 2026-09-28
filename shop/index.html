@@ -3,19 +3,35 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Shop Online | V Imprint Designs — Custom Embroidery & Laser Engraving</title>
-<meta name="description" content="Shop personalized engraved and embroidered gifts from V Imprint Designs. Custom text, colors, and fast turnaround — shipped nationwide.">
-<link rel="canonical" href="https://vimprintdesigns.com/shop">
+<title id="shopTitle">Shop Online | V Imprint Designs — Custom Embroidery & Laser Engraving</title>
+<meta id="shopMetaDescription" name="description" content="Shop personalized engraved and embroidered gifts from V Imprint Designs. Custom text, colors, and fast turnaround — shipped nationwide.">
+<!--
+  Fase 9 note: this canonical (and og:url below) is updated dynamically per
+  product/catalog state by shop.js's updateMetaTags(). The URL still uses the
+  SPA's "?handle=" query-string routing rather than a clean path like
+  /shop/product-x. That's a known architectural limitation, not something
+  fixed in this phase: query-string URLs ARE indexable by Google, but clean
+  paths are generally considered slightly better for SEO (perceived
+  relevance, easier canonicalization, no risk of a crawler ignoring or
+  merging query params). Revisiting this would need server-side routing/
+  rewrites for /shop/<handle>, which is out of scope here.
+-->
+<link id="shopCanonical" rel="canonical" href="https://vimprintdesigns.com/shop">
+<meta id="shopRobots" name="robots" content="index,follow">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Montserrat:wght@400;500;600;700;900&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/shop/shop.css">
 
 <!-- Open Graph -->
-<meta property="og:title" content="Shop Online | V Imprint Designs">
-<meta property="og:description" content="Shop personalized engraved and embroidered gifts from V Imprint Designs. Custom text, colors, and fast turnaround — shipped nationwide.">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://vimprintdesigns.com/shop">
+<meta id="ogTitle" property="og:title" content="Shop Online | V Imprint Designs">
+<meta id="ogDescription" property="og:description" content="Shop personalized engraved and embroidered gifts from V Imprint Designs. Custom text, colors, and fast turnaround — shipped nationwide.">
+<meta id="ogType" property="og:type" content="website">
+<meta id="ogUrl" property="og:url" content="https://vimprintdesigns.com/shop">
+<!-- og:image is added dynamically only when the product has a real image — never a stock/generic fallback -->
+
+<!-- Product structured data (Schema.org), filled in dynamically per-product only -->
+<script type="application/ld+json" id="productLd"></script>
 
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17390050949"></script>
@@ -63,7 +79,7 @@ fbq('track', 'PageView');
 </button>
 
 <main class="shop-main">
-  <p class="shop-breadcrumb"><a href="/">Home</a> / Shop</p>
+  <p class="shop-breadcrumb" id="shopBreadcrumb"><a href="/">Home</a> / Shop</p>
   <div id="shop-root">
     <!-- Populated by shop.js -->
   </div>

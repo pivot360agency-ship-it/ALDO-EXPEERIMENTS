@@ -34,6 +34,7 @@
   };
 
   const root = document.getElementById('shop-root');
+  const breadcrumbEl = document.getElementById('shopBreadcrumb');
   const cartToggleEl = document.getElementById('cartToggle');
   const cartCountEl = document.getElementById('cartCount');
   const cartDrawerEl = document.getElementById('cartDrawer');
@@ -49,22 +50,304 @@
 
   const QUOTE_ONLY_TAG = 'quote-only';
 
+  const CATALOG_FILTERS = [
+    { label: 'All Products', match: null },
+    { label: 'Military Awards', match: 'military-awards' },
+    { label: 'Business Uniforms', match: 'business-uniforms' },
+    { label: 'Tumblers & Gifts', match: 'tumblers-gifts' },
+    { label: 'Pet Memorials', match: 'pet-memorials' },
+  ];
+
+  const catalogState = {
+    products: null, // null = not loaded yet; [] = loaded, empty
+    activeFilter: 'All Products',
+  };
+
   async function init() {
     renderLoading();
     await restoreCart();
+
+    // Fase 2: /shop/ with NO ?handle= is the general catalog. Any ?handle=
+    // present routes straight to that product's detail view, exactly as
+    // before — this is additive, not a replacement of the existing routing.
+    const params = new URLSearchParams(window.location.search);
+    const handle = params.get('handle');
+
+    if (!handle) {
+      await initCatalog();
+      return;
+    }
+
     try {
-      // Generic product routing: /shop/?handle=<any-product-handle> loads
-      // that product. No handle in the URL falls back to the configured
-      // pilot product, so existing links keep working unchanged.
-      const params = new URLSearchParams(window.location.search);
-      const handle = params.get('handle');
       state.product = await ShopifyClient.getProductByHandle(handle);
       state.isQuoteOnly = ShopifyClient.hasTag(state.product, QUOTE_ONLY_TAG);
+
+      // Breadcrumb: Home / Shop All / {Collection} / {Product} when the
+      // product belongs to a real collection, otherwise the Fase 2 default
+      // of Home / Shop All / {Product} (no invented collection level).
+      const collection = state.product.collections && state.product.collections[0];
+      if (collection) {
+        // No dedicated collection route exists in this SPA (the catalog only
+        // supports its own in-page category filter buttons), so the
+        // collection crumb is plain text rather than a link to a URL that
+        // wouldn't actually filter anything.
+        setBreadcrumb(
+          `<a href="/">Home</a> / <a href="/shop/">Shop All</a> / ` +
+          `${escapeHtml(collection.title)} / ` +
+          `${escapeHtml(state.product.title)}`
+        );
+      } else {
+        setBreadcrumb(`<a href="/">Home</a> / <a href="/shop/">Shop All</a> / ${escapeHtml(state.product.title)}`);
+      }
+
+      updateMetaTagsForProduct(state.product, handle);
       initDefaultSelection();
       renderProduct();
     } catch (err) {
+      setBreadcrumb('<a href="/">Home</a> / <a href="/shop/">Shop All</a>');
+      if (err && err.kind === 'not_found') updateMetaTagsForNotFound();
       renderError(err);
     }
+  }
+
+  // ── Catalog (Fase 2) ─────────────────────────────────────
+
+  async function initCatalog() {
+    setBreadcrumb('<a href="/">Home</a> / Shop All');
+    updateMetaTagsForCatalog();
+    try {
+      catalogState.products = await ShopifyClient.getAllActiveProducts();
+      renderCatalog();
+    } catch (err) {
+      renderError(err);
+    }
+  }
+
+  function setBreadcrumb(html) {
+    if (breadcrumbEl) breadcrumbEl.innerHTML = html;
+  }
+
+  // ── SEO: dynamic <title>/meta/OG/canonical/JSON-LD (Fase 9) ─────────
+  // The SPA has one static index.html, so every route (catalog, a product,
+  // or an invalid handle) must rewrite these tags itself. Nothing here
+  // invents data — every value either comes straight from the Shopify
+  // product/catalog data or is omitted.
+
+  const SITE_NAME = 'V Imprint Designs';
+  const SITE_ORIGIN = 'https://vimprintdesigns.com';
+
+  function setMetaContent(id, content) {
+    const el = document.getElementById(id);
+    if (el) el.setAttribute('content', content);
+  }
+
+  function setOrRemoveOgImage(url) {
+    let el = document.getElementById('ogImage');
+    if (!url) {
+      // No real product image — never fabricate/point at a generic stock
+      // image, just omit the tag entirely.
+      if (el) el.remove();
+      return;
+    }
+    if (!el) {
+      el = document.createElement('meta');
+      el.id = 'ogImage';
+      el.setAttribute('property', 'og:image');
+      document.head.appendChild(el);
+    }
+    el.setAttribute('content', url);
+  }
+
+  // Strips HTML tags and collapses whitespace so descriptionHtml can be used
+  // as a plain-text fallback meta description when the product has no SEO
+  // description set in Shopify.
+  function stripHtmlToText(html) {
+    if (!html) return '';
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return (tmp.textContent || tmp.innerText || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function truncate(text, max) {
+    if (text.length <= max) return text;
+    return text.slice(0, max - 1).trimEnd() + '…';
+  }
+
+  function setStructuredData(json) {
+    const el = document.getElementById('productLd');
+    if (!el) return;
+    el.textContent = json ? JSON.stringify(json, null, 0) : '';
+  }
+
+  function updateMetaTagsForCatalog() {
+    const title = `Shop All | ${SITE_NAME}`;
+    const description = 'Shop personalized engraved and embroidered gifts from V Imprint Designs. Custom text, colors, and fast turnaround — shipped nationwide.';
+    const url = `${SITE_ORIGIN}/shop/`;
+
+    document.title = title;
+    setMetaContent('shopMetaDescription', description);
+    setMetaContent('ogTitle', title);
+    setMetaContent('ogDescription', description);
+    setMetaContent('shopRobots', 'index,follow');
+    const canonicalEl = document.getElementById('shopCanonical');
+    if (canonicalEl) canonicalEl.setAttribute('href', url);
+    setMetaContent('ogUrl', url);
+    setOrRemoveOgImage(null); // catalog has no single representative image — omit rather than fake one
+    setStructuredData(null); // Product JSON-LD only applies to a single product page
+  }
+
+  function updateMetaTagsForNotFound() {
+    const title = `Product Not Found | ${SITE_NAME}`;
+    const description = "This item isn't available right now. Browse our full catalog of personalized, laser-engraved and embroidered gifts instead.";
+    document.title = title;
+    setMetaContent('shopMetaDescription', description);
+    setMetaContent('ogTitle', title);
+    setMetaContent('ogDescription', description);
+    // A not-found page has no real content of its own — keep it out of the
+    // index rather than letting an empty/duplicate page get crawled as 200.
+    setMetaContent('shopRobots', 'noindex,follow');
+    const canonicalEl = document.getElementById('shopCanonical');
+    if (canonicalEl) canonicalEl.setAttribute('href', `${SITE_ORIGIN}/shop/`);
+    setMetaContent('ogUrl', `${SITE_ORIGIN}/shop/`);
+    setOrRemoveOgImage(null);
+    setStructuredData(null);
+  }
+
+  function updateMetaTagsForProduct(p, handle) {
+    const title = `${p.title} | ${SITE_NAME}`;
+
+    // Prefer the real Shopify SEO description field; fall back to the
+    // product's own description text (stripped of HTML); never fall back to
+    // filler copy.
+    let description = (p.seo && p.seo.description && p.seo.description.trim()) || '';
+    if (!description) description = stripHtmlToText(p.descriptionHtml);
+    if (description) description = truncate(description, 160);
+
+    const url = `${SITE_ORIGIN}/shop/?handle=${encodeURIComponent(handle)}`;
+    const image = p.featuredImage && p.featuredImage.url ? p.featuredImage.url : null;
+
+    document.title = title;
+    if (description) {
+      setMetaContent('shopMetaDescription', description);
+      setMetaContent('ogDescription', description);
+    }
+    setMetaContent('ogTitle', title);
+    setMetaContent('shopRobots', 'index,follow');
+    const canonicalEl = document.getElementById('shopCanonical');
+    if (canonicalEl) canonicalEl.setAttribute('href', url);
+    setMetaContent('ogUrl', url);
+    setOrRemoveOgImage(image); // only set og:image when a real product image exists
+
+    // Schema.org Product JSON-LD — only include fields we actually have.
+    const firstVariant = p.variants && p.variants[0];
+    const prices = (p.variants || []).map((v) => Number(v.price.amount));
+    const minPrice = prices.length ? Math.min(...prices) : null;
+    const currency = firstVariant ? firstVariant.price.currencyCode : null;
+    const anyAvailable = (p.variants || []).some((v) => v.availableForSale);
+
+    if (minPrice !== null && currency) {
+      const ld = {
+        '@context': 'https://schema.org/',
+        '@type': 'Product',
+        name: p.title,
+        url,
+      };
+      if (image) ld.image = [image];
+      if (description) ld.description = description;
+      ld.offers = {
+        '@type': 'Offer',
+        url,
+        priceCurrency: currency,
+        price: String(minPrice),
+        availability: anyAvailable
+          ? 'https://schema.org/InStock'
+          : 'https://schema.org/OutOfStock',
+      };
+      setStructuredData(ld);
+    } else {
+      setStructuredData(null);
+    }
+  }
+
+  function filteredCatalogProducts() {
+    const filter = CATALOG_FILTERS.find((f) => f.label === catalogState.activeFilter);
+    if (!filter || !filter.match) return catalogState.products;
+    return catalogState.products.filter((p) =>
+      p.collections.some((c) => c.handle === filter.match)
+    );
+  }
+
+  function renderCatalog() {
+    const products = filteredCatalogProducts();
+
+    root.innerHTML = `
+      <div class="catalog">
+        <div class="catalog-header">
+          <h1>Shop All</h1>
+          <p>Personalized, laser-engraved &amp; embroidered gifts — made to order.</p>
+        </div>
+
+        <div class="catalog-filters" role="tablist" aria-label="Filter products by category">
+          ${CATALOG_FILTERS.map(
+            (f) => `
+            <button type="button" class="catalog-filter-btn ${f.label === catalogState.activeFilter ? 'active' : ''}"
+              data-filter="${escapeHtml(f.label)}" role="tab" aria-selected="${f.label === catalogState.activeFilter}">
+              ${escapeHtml(f.label)}
+            </button>`
+          ).join('')}
+        </div>
+
+        ${products.length ? `
+        <div class="catalog-grid">
+          ${products.map(renderCatalogCard).join('')}
+        </div>` : `
+        <div class="catalog-empty">
+          <p>No products found in this category yet.</p>
+        </div>`}
+      </div>
+    `;
+
+    bindCatalogEvents();
+  }
+
+  function renderCatalogCard(p) {
+    const priceLabel = p.minPrice === null
+      ? ''
+      : p.isPriceRange
+        ? `${formatMoney(p.minPrice, p.currency)} – ${formatMoney(p.maxPrice, p.currency)}`
+        : formatMoney(p.minPrice, p.currency);
+
+    const href = `/shop/?handle=${encodeURIComponent(p.handle)}`;
+    const collectionLabel = p.collections[0] ? p.collections[0].title : '';
+
+    return `
+      <a class="catalog-card" href="${escapeHtml(href)}" data-handle="${escapeHtml(p.handle)}">
+        <div class="catalog-card-image">
+          ${p.image
+            ? `<img src="${escapeHtml(p.image.url)}" alt="${escapeHtml(p.image.altText)}" loading="lazy" width="400" height="400">`
+            : `<div class="catalog-card-image-empty" aria-hidden="true"></div>`}
+          ${p.isBestSeller ? '<span class="catalog-badge catalog-badge-gold">Best Seller</span>' : ''}
+          ${p.isQuoteOnly ? '<span class="catalog-badge catalog-badge-outline">Custom Quote</span>' : ''}
+          ${p.soldOut && !p.isQuoteOnly ? '<span class="catalog-badge catalog-badge-muted">Sold Out</span>' : ''}
+        </div>
+        <div class="catalog-card-body">
+          ${collectionLabel ? `<span class="catalog-card-collection">${escapeHtml(collectionLabel)}</span>` : ''}
+          <h2 class="catalog-card-title">${escapeHtml(p.title)}</h2>
+          ${priceLabel ? `<div class="catalog-card-price">${priceLabel}</div>` : ''}
+          <span class="catalog-card-cta ${p.isQuoteOnly ? 'catalog-card-cta-outline' : ''}">
+            ${p.isQuoteOnly ? 'Request a Custom Quote' : 'View Product'}
+          </span>
+        </div>
+      </a>`;
+  }
+
+  function bindCatalogEvents() {
+    root.querySelectorAll('.catalog-filter-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        catalogState.activeFilter = btn.dataset.filter;
+        renderCatalog();
+      });
+    });
   }
 
   function initDefaultSelection() {
@@ -112,11 +395,16 @@
     // message above — the underlying err.message can contain internal API
     // or schema details that shouldn't be shown to shoppers.
 
+    const showShopAllLink = err && err.kind === 'not_found';
+
     root.innerHTML = `
       <div class="shop-state error">
         <h2>${escapeHtml(title)}</h2>
         <p>${escapeHtml(msg)}</p>
-        <button class="retry-btn" id="retryBtn">Try again</button>
+        <div class="shop-state-actions">
+          <button class="retry-btn" id="retryBtn">Try again</button>
+          ${showShopAllLink ? '<a class="retry-btn retry-btn-outline" href="/shop/">Shop All</a>' : ''}
+        </div>
       </div>`;
     document.getElementById('retryBtn').addEventListener('click', init);
   }
@@ -155,6 +443,7 @@
       <div class="product-gallery">
         <div class="product-gallery-main">
           <img src="${escapeHtml(activeImg.url)}" alt="${escapeHtml(galleryAlt(activeImg, p.title))}"
+            loading="eager" fetchpriority="high" decoding="async"
             data-fallback-src="${escapeHtml(featuredUrl)}">
         </div>
 

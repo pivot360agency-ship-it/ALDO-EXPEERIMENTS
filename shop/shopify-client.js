@@ -58,6 +58,17 @@ const ShopifyClient = (() => {
         handle
         descriptionHtml
         tags
+        seo {
+          title
+          description
+        }
+        collections(first: 1) {
+          nodes {
+            id
+            title
+            handle
+          }
+        }
         featuredImage {
           id
           url
@@ -146,6 +157,107 @@ const ShopifyClient = (() => {
     return getProductByHandle(cfg.pilotProductHandle);
   }
 
+  // ── CATALOG (Fase 2) ─────────────────────────────────────
+  // The Storefront API only ever returns products that are (a) status
+  // ACTIVE and (b) published to the sales channel this public token belongs
+  // to — a Draft product is invisible here at the API level, not just
+  // filtered out by our own code. That means this query can never leak an
+  // unpublished product, even if someone changes this file incorrectly.
+  const CATALOG_QUERY = /* GraphQL */ `
+    query ShopCatalog($first: Int!, $after: String) {
+      products(first: $first, after: $after, sortKey: TITLE) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          id
+          title
+          handle
+          tags
+          featuredImage {
+            id
+            url
+            altText
+            width
+            height
+          }
+          priceRange: variants(first: 1) {
+            nodes {
+              price {
+                amount
+                currencyCode
+              }
+            }
+          }
+          minVariantPrice: variants(first: 250) {
+            nodes {
+              price {
+                amount
+                currencyCode
+              }
+              availableForSale
+            }
+          }
+          collections(first: 5) {
+            nodes {
+              title
+              handle
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  // Fetches every product visible to this storefront token (paginating
+  // until Shopify reports no more pages) and normalizes each into the
+  // shape the catalog grid needs. Never touches Draft/unpublished products
+  // — see the comment on CATALOG_QUERY above.
+  async function getAllActiveProducts() {
+    const all = [];
+    let after = null;
+    let hasNextPage = true;
+    let guard = 0; // safety cap so a pagination bug can't loop forever
+    while (hasNextPage && guard < 20) {
+      guard += 1;
+      const data = await request(CATALOG_QUERY, { first: 50, after });
+      const conn = data.products;
+      conn.nodes.forEach((raw) => all.push(normalizeCatalogProduct(raw)));
+      hasNextPage = conn.pageInfo.hasNextPage;
+      after = conn.pageInfo.endCursor;
+    }
+    return all;
+  }
+
+  function normalizeCatalogProduct(raw) {
+    const variants = raw.minVariantPrice.nodes;
+    const prices = variants.map((v) => Number(v.price.amount));
+    const minPrice = prices.length ? Math.min(...prices) : null;
+    const maxPrice = prices.length ? Math.max(...prices) : null;
+    const currency = variants[0] ? variants[0].price.currencyCode : 'USD';
+    const anyAvailable = variants.some((v) => v.availableForSale);
+    return {
+      id: raw.id,
+      handle: raw.handle,
+      title: raw.title,
+      tags: raw.tags || [],
+      image: raw.featuredImage
+        ? { url: raw.featuredImage.url, altText: altTextFor(raw.featuredImage, raw.title, null) }
+        : null,
+      minPrice,
+      maxPrice,
+      currency,
+      isPriceRange: minPrice !== null && maxPrice !== null && minPrice !== maxPrice,
+      soldOut: !anyAvailable,
+      isQuoteOnly: hasTag(raw, QUOTE_ONLY_TAG_CONST),
+      isBestSeller: hasTag(raw, 'best-seller'),
+      collections: (raw.collections && raw.collections.nodes) || [],
+    };
+  }
+
+  const QUOTE_ONLY_TAG_CONST = 'quote-only';
+
   // Builds the product's full, deduped gallery: featuredImage first, then
   // every image in `images(first: 50)`, then any variant image that isn't
   // already in that set (some stores only attach an image to a variant and
@@ -230,6 +342,11 @@ const ShopifyClient = (() => {
       title: raw.title,
       descriptionHtml: raw.descriptionHtml,
       tags: raw.tags || [],
+      seo: {
+        title: (raw.seo && raw.seo.title) || null,
+        description: (raw.seo && raw.seo.description) || null,
+      },
+      collections: (raw.collections && raw.collections.nodes) || [],
       featuredImage: raw.featuredImage
         ? { ...raw.featuredImage, altText: altTextFor(raw.featuredImage, raw.title, null) }
         : gallery[0] || null,
@@ -435,6 +552,7 @@ const ShopifyClient = (() => {
   return {
     getPilotProduct,
     getProductByHandle,
+    getAllActiveProducts,
     createCart,
     addLineToCart,
     removeLineFromCart,

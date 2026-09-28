@@ -62,7 +62,7 @@ const ShopifyClient = (() => {
           title
           description
         }
-        collections(first: 1) {
+        collections(first: 5) {
           nodes {
             id
             title

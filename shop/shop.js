@@ -65,6 +65,28 @@
     activeFilter: 'All Products',
   };
 
+  // Technical/structural collections that exist for site plumbing (the
+  // Home page feed, the Best Sellers merchandising shelf) rather than as a
+  // real commercial category. They must never be shown as a product's
+  // displayed category or breadcrumb segment, even though the product
+  // legitimately stays assigned to them for their real purpose.
+  const NON_COMMERCIAL_COLLECTION_HANDLES = ['frontpage', 'best-sellers'];
+
+  /**
+   * Returns the first commercially-relevant collection for display
+   * (card label / breadcrumb), skipping technical collections such as
+   * "Home page" and "Best Sellers". Returns null if the product has no
+   * commercial collection assigned (falls back to no-category display,
+   * never to a technical collection).
+   */
+  function pickPrimaryCollection(collections) {
+    if (!collections || !collections.length) return null;
+    const commercial = collections.find(
+      (c) => c && !NON_COMMERCIAL_COLLECTION_HANDLES.includes(c.handle)
+    );
+    return commercial || null;
+  }
+
   async function init() {
     renderLoading();
     await restoreCart();
@@ -87,7 +109,7 @@
       // Breadcrumb: Home / Shop All / {Collection} / {Product} when the
       // product belongs to a real collection, otherwise the Fase 2 default
       // of Home / Shop All / {Product} (no invented collection level).
-      const collection = state.product.collections && state.product.collections[0];
+      const collection = pickPrimaryCollection(state.product.collections);
       if (collection) {
         // No dedicated collection route exists in this SPA (the catalog only
         // supports its own in-page category filter buttons), so the
@@ -320,7 +342,8 @@
         : formatMoney(p.minPrice, p.currency);
 
     const href = `/shop/?handle=${encodeURIComponent(p.handle)}`;
-    const collectionLabel = p.collections[0] ? p.collections[0].title : '';
+    const primaryCollection = pickPrimaryCollection(p.collections);
+    const collectionLabel = primaryCollection ? primaryCollection.title : '';
 
     return `
       <a class="catalog-card" href="${escapeHtml(href)}" data-handle="${escapeHtml(p.handle)}">

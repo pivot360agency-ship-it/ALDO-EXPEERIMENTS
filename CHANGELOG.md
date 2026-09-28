@@ -1,7 +1,15 @@
-# Changelog — V Imprint Designs Shop (13 Fases)
+# Changelog — V Imprint Designs Shop (13 Fases + ronda headless 2026-09-28)
 
-Fecha: 2026-09-25
+Fecha: 2026-09-25 (13 fases originales) + 2026-09-28 (ronda de cierre headless).
 Base: despliegue previamente confirmado en producción (commit `411dbf3`, verificado por el dueño como funcionando correctamente en Netlify antes de iniciar este trabajo).
+
+## Ronda 2026-09-28 — cierre headless
+
+- **Shopify (colecciones):** se agregaron descripción y SEO title/description a las 8 colecciones (Home page, Tumblers & Gifts, Military Awards, Embroidered Apparel, Business Uniforms, Pet Memorials, For Business, Best Sellers), que estaban vacías. No se tocaron productos asignados, tipo de colección ni orden — todas las asignaciones ya coincidían con lo especificado.
+- **Shopify (productos):** auditoría de los 12 productos confirmó que SEO, tags, categorías, metafields de personalización y colecciones ya estaban completos desde la ronda anterior — no se requirió ninguna mutación.
+- **`shop/shop.js`:** se amplió `CATALOG_FILTERS` de 5 a 7 entradas — se agregaron "Embroidered Apparel" y "For Business" (faltaban), y se renombró "All Products" a "All". Sin cambios en la lógica de filtrado, solo la lista de categorías disponibles.
+- Se re-corrió toda la suite de pruebas Playwright acumulada (catálogo, navegación, Fase 1, multi-opción, quote-only, personalización, responsive, accesibilidad, SEO) tras el cambio — 0 regresiones, 0 errores de consola.
+- No hay remote de git configurado en este entorno de trabajo (`git remote -v` vacío) — el propietario gestiona el repositorio real vía GitHub web UI. Por tanto este cambio NO fue publicado por Claude; se entrega como diff + ZIP, igual que las rondas anteriores.
 
 Este documento resume los cambios de código realizados en esta sesión, organizados por fase. Todo el trabajo respeta las reglas duras del proyecto: no se crearon productos adicionales, no se duplicaron colecciones/variantes/SKU/metafields, no se cambiaron precios/SKU/pesos/inventario/variantes ya aprobados, no se publicó ni activó ningún producto Draft, no se usaron imágenes genéricas/de terceros/generadas, no se modificó la identidad visual (tipografías, paleta, botones dorados/outline existentes), no se cambiaron configuraciones de envío en vivo, y no se guardó ningún token privado en el repositorio.
 

@@ -1,0 +1,27 @@
+Product code,Images uploaded,Variant images assigned,Description reviewed,SEO reviewed,Inventory reviewed,Shipping reviewed,Mobile checked,Desktop checked,Test order completed,Approved,Published to vimprintdesigns-web,Launch notes
+TU-020,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,"Ya publicado/activo en la tienda (no es un lanzamiento pendiente). No forma parte del orden de lanzamiento recomendado. Se incluye en esta checklist solo para mantener el registro completo de los 12 productos. Permite personalizacion (texto, archivo, proof) y venta final (final sale excepto error de V Imprint Designs)."
+EM-001,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,"#1 en orden de lanzamiento recomendado. Custom Embroidered Cap. Opcion unica Color (4 valores: Black, Navy, Coyote Tan, Olive Green), 4 variantes. Requiere cotizacion para pedidos 12+. Personalizacion con texto/archivo/proof habilitada."
+EM-002,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,"#2 en orden de lanzamiento recomendado. Custom Embroidered Polo. Color (5) x Size (7) = 35 variantes, la mas compleja en combinaciones de opciones. Requiere cotizacion para pedidos 12+. Verificar cuidadosamente que las imagenes de variante por color esten asignadas dado el volumen de combinaciones."
+TU-040,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,"#3 en orden de lanzamiento recomendado. Personalized 40 oz Handle Tumbler. Opcion unica Color (3 valores: Black, Navy, White). ATENCION: en la auditoria de Fase 4, las 3 variantes figuraban como availableForSale=false (sin stock) en Shopify — confirmar y corregir inventario antes de lanzar. Requiere cotizacion para pedidos 12+."
+AW-001,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,"#4 en orden de lanzamiento recomendado. Award/Plaque personalizable (texto, archivo, proof habilitados; production_time y personalization_instructions propios). Requiere cotizacion para pedidos 12+."
+EM-003,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,"#5 en orden de lanzamiento recomendado. Embroidered Work Shirt (button-up). Color (4) x Size (7) = 28 variantes, mismo patron que EM-002. Requiere cotizacion para pedidos 12+."
+PET-001,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,"#6 en orden de lanzamiento recomendado. Custom Pet Memorial Plaque. Material (2) x Size (2) = 4 variantes. Requiere cotizacion para pedidos 12+."
+PET-002,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,"#7 en orden de lanzamiento recomendado. Pet portrait/foto personalizada. El precio incluye preparacion basica de UNA foto clara de mascota; restauracion de foto, multiples mascotas o composicion compleja requieren cotizacion aparte (aclarar bien en la ficha). Requiere cotizacion para pedidos 12+."
+AW-003,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,"#8 en orden de lanzamiento recomendado. Wood/Acrylic Recognition Award. Material (2) x Size (3) = 6 variantes. Requiere cotizacion para pedidos 12+."
+AW-004,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,"#9 en orden de lanzamiento recomendado. Challenge Coin Display / Desk Nameplate. Product Style (2) x Size (2) = 4 variantes. Requiere cotizacion para pedidos 12+."
+AW-005,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,"#10 en orden de lanzamiento recomendado. Gift set / multi-componente. ATENCION: umbral de cotizacion por volumen es de 6+ unidades (no 12+ como el resto del catalogo) — decision de negocio ya aprobada, confirmar que la ficha lo muestre claramente para evitar confusion en checkout."
+AW-002,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,Pending,"#11 (ultimo) en orden de lanzamiento recomendado. One-of-a-Kind Military Award — QUOTE-ONLY: no tiene boton Add to Cart ni variantes comprables; el CTA es 'Request a Custom Quote' que prellena el formulario de contacto. No aplica flujo de checkout/test order tradicional — el 'test' de este producto es validar que el CTA de cotizacion funcione y prellene correctamente."
+,,,,,,,,,,,,
+ORDEN DE LANZAMIENTO RECOMENDADO (definido por el usuario),,,,,,,,,,,,
+1. EM-001,,,,,,,,,,,,
+2. EM-002,,,,,,,,,,,,
+3. TU-040,,,,,,,,,,,,
+4. AW-001,,,,,,,,,,,,
+5. EM-003,,,,,,,,,,,,
+6. PET-001,,,,,,,,,,,,
+7. PET-002,,,,,,,,,,,,
+8. AW-003,,,,,,,,,,,,
+9. AW-004,,,,,,,,,,,,
+10. AW-005,,,,,,,,,,,,
+11. AW-002 (quote-only),,,,,,,,,,,,
+Nota: TU-020 no aparece en el orden porque ya esta publicado/activo.,,,,,,,,,,,,

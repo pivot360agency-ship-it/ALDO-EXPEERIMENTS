@@ -1467,7 +1467,10 @@ document.querySelectorAll('.pkg-cta').forEach(btn=>{
   if(!product && !code && !url) return;
   const projectSelect=document.querySelector('#qf [name="projectType"]');
   const messageEl=document.querySelector('#qf [name="message"]');
-  if(projectSelect) projectSelect.value='Custom / One-of-a-Kind';
+  // 'Custom / One-of-a-Kind' isn't one of the <select>'s options, so setting
+  // it left the field stuck on the disabled placeholder — use an option that
+  // actually exists in the markup above.
+  if(projectSelect) projectSelect.value='Not Sure — Help Me Decide';
   if(messageEl){
     const lines=[`I'd like a quote for: ${product||'a custom item'}`];
     if(code) lines.push(`Product code: ${code}`);

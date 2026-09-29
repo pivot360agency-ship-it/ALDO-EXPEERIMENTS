@@ -58,16 +58,56 @@
     { label: 'Business Uniforms', match: 'business-uniforms' },
     { label: 'Pet Memorials', match: 'pet-memorials' },
     { label: 'For Business', match: 'for-business' },
+    // Frontend mapping fix: "Personalized Metal Tag / Keychain" (and any
+    // other product) lives in the real Shopify collection
+    // "Personalized Gifts & Pets" (handle personalized-gifts-pets), which
+    // had no matching filter button — it was unreachable via any catalog
+    // filter even though pickPrimaryCollection() already showed its real
+    // collection title as the card's category badge. This adds the
+    // matching filter; it does not change or invent any Shopify data.
+    { label: 'Personalized Gifts', match: 'personalized-gifts-pets' },
   ];
+
+  // Maps a `?collection=` URL param value (as used by footer/external links)
+  // to the matching CATALOG_FILTERS label. Kept separate from the filter
+  // buttons' own internal `match` values so this can also resolve a
+  // collection handle that has no dedicated filter button (e.g. the
+  // Personalized Gifts & Pets collection, see badge mapping below) by
+  // falling back to the closest existing filter with the extra entries
+  // added here.
+  const COLLECTION_PARAM_TO_FILTER_LABEL = {
+    'military-awards': 'Military Awards',
+    'for-business': 'For Business',
+    'tumblers-gifts': 'Tumblers & Gifts',
+    'embroidered-apparel': 'Embroidered Apparel',
+    'business-uniforms': 'Business Uniforms',
+    'pet-memorials': 'Pet Memorials',
+    'personalized-gifts-pets': 'Personalized Gifts',
+  };
 
   // Fase B: category cards are alternate triggers for the SAME filter
   // buttons above (reuse existing filter logic — nothing new is filtered
   // here). handle: null falls back to a CSS-only card visual when no
   // representative product image is available in already-fetched data.
+  // Category-card representative photos are real Shopify images (not run
+  // through ShopifyClient.placeholderCategoryFor, which needs a full
+  // product object) — this maps each card's own filter `match` handle to
+  // the closest existing local placeholder SVG, purely as an onerror
+  // fallback target if that live image URL ever 404s.
+  const PLACEHOLDER_KEY_FOR_FILTER_MATCH = {
+    'tumblers-gifts': 'gifts',
+    'military-awards': 'military',
+    'embroidered-apparel': 'embroidery',
+    'business-uniforms': 'business',
+    'pet-memorials': 'pet',
+    'for-business': 'business',
+    'personalized-gifts-pets': 'gifts',
+  };
+
   const CATEGORY_CARDS = [
-    { label: 'Tumblers & Gifts', match: 'tumblers-gifts', title: 'Tumblers & Gifts', desc: 'Engraved drinkware and keepsakes for everyday and celebration.' },
-    { label: 'Military Awards', match: 'military-awards', title: 'Military Awards', desc: 'Custom plaques and recognition pieces for service and retirement.' },
-    { label: 'Embroidered Apparel', match: 'embroidered-apparel', title: 'Embroidered Apparel', desc: 'Logo and name embroidery on shirts, hats and outerwear.' },
+    { label: 'Tumblers & Gifts', match: 'tumblers-gifts', title: 'Tumblers & Gifts', desc: 'Engraved drinkware and keepsakes for everyday and celebration.', fixedImage: '/assets/images/craft-tumblers-gifts.png' },
+    { label: 'Military Awards', match: 'military-awards', title: 'Military Awards', desc: 'Custom plaques and recognition pieces for service and retirement.', fixedImage: '/assets/images/craft-military-awards.png' },
+    { label: 'Embroidered Apparel', match: 'embroidered-apparel', title: 'Embroidered Apparel', desc: 'Logo and name embroidery on shirts, hats and outerwear.', fixedImage: '/assets/images/craft-embroidered-apparel.png' },
     { label: 'Business Uniforms', match: 'business-uniforms', title: 'Business Uniforms', desc: 'Branded uniforms and workwear for professional teams.' },
     { label: 'Pet Memorials', match: 'pet-memorials', title: 'Pet Memorials', desc: 'Lasting, personalized tributes to a beloved companion.' },
   ];
@@ -157,12 +197,39 @@
     document.body.classList.add('catalog-view');
     setBreadcrumb('<a href="/">Home</a> / Shop All');
     updateMetaTagsForCatalog();
+
+    // Item 3: a `?collection=<handle>` URL param (e.g. from the footer's
+    // "Military Awards" / "For Business" links) auto-applies the matching
+    // filter on load. Unrecognized values are ignored — falls back to "All"
+    // — so a stale/typo'd link never leaves the catalog looking empty.
+    const params = new URLSearchParams(window.location.search);
+    const collectionParam = params.get('collection');
+    const mappedLabel = collectionParam ? COLLECTION_PARAM_TO_FILTER_LABEL[collectionParam] : null;
+    if (mappedLabel) catalogState.activeFilter = mappedLabel;
+
     try {
       catalogState.products = await ShopifyClient.getAllActiveProducts();
       renderCatalog();
     } catch (err) {
       renderError(err);
     }
+  }
+
+  // Keeps the URL's `?collection=` param in sync with the active filter
+  // without touching browser history — uses replaceState (never pushState)
+  // so the Back button still behaves exactly as normal navigation would
+  // (no extra history entries per filter click).
+  function syncFilterUrlParam(label) {
+    const url = new URL(window.location.href);
+    const handle = Object.keys(COLLECTION_PARAM_TO_FILTER_LABEL).find(
+      (h) => COLLECTION_PARAM_TO_FILTER_LABEL[h] === label
+    );
+    if (handle) {
+      url.searchParams.set('collection', handle);
+    } else {
+      url.searchParams.delete('collection');
+    }
+    window.history.replaceState(window.history.state, '', url.pathname + url.search);
   }
 
   function setBreadcrumb(html) {
@@ -351,7 +418,7 @@
     return `
       <section class="shop-hero-v2 shop-hero" aria-label="Shop introduction">
         <div class="shop-hero-v2-bg" aria-hidden="true">
-          <img src="/assets/images/v-imprint-designs-custom-embroidery-and-laser-engr.webp" alt="" loading="eager" fetchpriority="high" width="1717" height="916">
+          <img src="/assets/images/shop-hero-craft-lineup.png" alt="" loading="eager" fetchpriority="high" width="1672" height="940">
         </div>
         <div class="shop-hero-v2-copy">
           <span class="shop-hero-v2-eyebrow">Personalized With Purpose</span>
@@ -380,12 +447,19 @@
         </div>
         <div class="craft-cards category-cards">
           ${CATEGORY_CARDS.map((c) => {
-            const img = representativeImageFor(c.match);
+            // A card-level fixedImage (a curated local photo) always wins over
+            // the auto-picked first-product-in-collection image, so specific
+            // craft cards can show a chosen representative shot rather than
+            // whichever product happened to be first in that collection.
+            const fixed = c.fixedImage;
+            const img = fixed ? null : representativeImageFor(c.match);
             return `
             <button type="button" class="craft-card category-card" data-filter-trigger="${escapeHtml(c.label)}" aria-label="Shop ${escapeHtml(c.title)}">
               <div class="craft-card-image category-card-image">
-                ${img
-                  ? `<img src="${escapeHtml(img.url)}" alt="" loading="lazy" width="320" height="400">`
+                ${fixed
+                  ? `<img src="${escapeHtml(fixed)}" alt="" loading="lazy" width="320" height="400" data-placeholder-fallback="/shop/assets/placeholders/placeholder-${escapeHtml(c.match ? PLACEHOLDER_KEY_FOR_FILTER_MATCH[c.match] || 'default' : 'default')}.svg">`
+                  : img
+                  ? `<img src="${escapeHtml(img.url)}" alt="" loading="lazy" width="320" height="400" data-placeholder-fallback="/shop/assets/placeholders/placeholder-${escapeHtml(c.match ? PLACEHOLDER_KEY_FOR_FILTER_MATCH[c.match] || 'default' : 'default')}.svg">`
                   : `<div class="craft-card-image-fallback category-card-image-fallback" data-mark="${escapeHtml(initialsFor(c.title))}" aria-hidden="true"></div>`}
               </div>
               <div class="craft-card-body category-card-body">
@@ -410,14 +484,19 @@
   function renderFavorites() {
     const favorites = bestSellerProducts();
     return `
-      <section class="mhw-section mhw-reveal" aria-label="Customer favorites">
-        <span class="mhw-eyebrow mhw-eyebrow-onlight">Customer Favorites</span>
-        <h2 class="mhw-heading">Best Sellers</h2>
-        ${favorites.length ? `
-        <div class="favorites-grid">
-          ${favorites.map(renderCatalogCard).join('')}
-        </div>` : `
-        <p class="favorites-empty">Best sellers will appear here once available.</p>`}
+      <section class="mhw-section favorites-section mhw-reveal" aria-label="Customer favorites">
+        <div class="favorites-section-bg" aria-hidden="true">
+          <img src="/assets/images/shop-favorites-bg.png" alt="" loading="lazy" width="1536" height="1024">
+        </div>
+        <div class="favorites-section-inner">
+          <span class="mhw-eyebrow mhw-eyebrow-onlight">Customer Favorites</span>
+          <h2 class="mhw-heading">Best Sellers</h2>
+          ${favorites.length ? `
+          <div class="favorites-grid">
+            ${favorites.map(renderCatalogCard).join('')}
+          </div>` : `
+          <p class="favorites-empty">Best sellers will appear here once available.</p>`}
+        </div>
       </section>`;
   }
 
@@ -494,8 +573,8 @@
             <h4>Shop</h4>
             <ul>
               <li><a href="/shop/">Shop All</a></li>
-              <li><a href="/shop/" data-filter-trigger="Military Awards">Military Awards</a></li>
-              <li><a href="/shop/" data-filter-trigger="For Business">For Business</a></li>
+              <li><a href="/shop/?collection=military-awards" data-filter-trigger="Military Awards">Military Awards</a></li>
+              <li><a href="/shop/?collection=for-business" data-filter-trigger="For Business">For Business</a></li>
               <li><a href="/#contact">Contact</a></li>
             </ul>
           </div>
@@ -616,7 +695,7 @@
       <a class="catalog-card" href="${escapeHtml(href)}" data-handle="${escapeHtml(p.handle)}">
         <div class="catalog-card-image">
           ${p.image
-            ? `<img src="${escapeHtml(p.image.url)}" alt="${escapeHtml(p.image.altText)}" loading="lazy" width="400" height="400">`
+            ? `<img src="${escapeHtml(p.image.url)}" alt="${escapeHtml(p.image.altText)}" loading="lazy" width="400" height="400" data-placeholder-fallback="/shop/assets/placeholders/placeholder-${escapeHtml(ShopifyClient.placeholderCategoryFor(p))}.svg">`
             : `<div class="catalog-card-image-empty" aria-hidden="true">
                  <img class="catalog-card-placeholder-img" src="/shop/assets/placeholders/placeholder-${escapeHtml(ShopifyClient.placeholderCategoryFor(p))}.svg" alt="" loading="lazy" width="400" height="400">
                </div>`}
@@ -642,14 +721,39 @@
   // (hero CTA, category cards, editorial CTA), never a duplicate filter.
   function activateFilter(label) {
     catalogState.activeFilter = label;
+    syncFilterUrlParam(label);
     renderCatalog();
     document.getElementById('catalogGridAnchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  // Task 6: fallback chain for real (Shopify-hosted) images on catalog and
+  // category cards — Shopify image → local category placeholder, never a
+  // broken-image icon. Guarded with { once: true } plus clearing the
+  // data attribute after firing, so if the placeholder SVG itself ever
+  // 404s (e.g. missing from disk), the handler doesn't loop retrying the
+  // same broken src.
+  function bindImageFallbacks() {
+    root.querySelectorAll('img[data-placeholder-fallback]').forEach((img) => {
+      img.addEventListener(
+        'error',
+        () => {
+          const fallback = img.dataset.placeholderFallback;
+          if (fallback && img.src !== fallback) {
+            img.src = fallback;
+          }
+          delete img.dataset.placeholderFallback;
+        },
+        { once: true }
+      );
+    });
+  }
+
   function bindCatalogEvents() {
+    bindImageFallbacks();
     root.querySelectorAll('.catalog-filter-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         catalogState.activeFilter = btn.dataset.filter;
+        syncFilterUrlParam(btn.dataset.filter);
         renderCatalog();
       });
     });

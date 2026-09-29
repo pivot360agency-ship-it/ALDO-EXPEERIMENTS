@@ -142,13 +142,24 @@ a { text-decoration: none; color: inherit; }
   display: grid; grid-template-columns: 1.15fr 0.95fr; gap: 56px;
   align-items: start;
 }
+/* Info column flows in normal document flow — the whole page scrolls as
+   one, instead of the info column having its own internal scrollbar.
+   The gallery (not this column) is the element that stays sticky — see
+   .product-gallery below. */
 .product-info {
+  position: static; max-height: none; overflow-y: visible;
+}
+.product-gallery {
   position: sticky; top: 84px;
-  max-height: calc(100vh - 104px); overflow-y: auto;
+  /* Caps the sticky gallery's height so it can never grow taller than the
+     viewport (which would cut off its own bottom thumbnails/content) —
+     it simply scrolls out of view with the page once the info column
+     beside it is taller than one screen, rather than overlapping content. */
+  max-height: calc(100vh - 104px);
 }
 @media (max-width: 860px) {
   .product-grid { grid-template-columns: 1fr; gap: 32px; }
-  .product-info { position: static; max-height: none; overflow-y: visible; }
+  .product-gallery { position: static; max-height: none; }
 }
 
 /* ── Product gallery ──────────────────────────────────────
@@ -409,20 +420,53 @@ a { text-decoration: none; color: inherit; }
 }
 
 /* ── Cart drawer ── */
+/* Sits inside the header's own vertical space (header is 64px tall,
+   z-index 200), and ABOVE the gold ticker band (top: 64px, z-index 190) —
+   z-index 210 keeps it above both the header chrome and the ticker without
+   needing to exceed the drawer/overlay's own 290/300. Uses the exact same
+   premium gold gradient as the site's solid-gold buttons (.btn-add-cart /
+   .btn-checkout), never a new gradient. */
 .cart-toggle {
-  position: fixed; top: 10px; right: 18px; z-index: 250;
-  font-family: var(--fh); font-size: 0.85rem; font-weight: 700;
-  background: var(--ink2); border: 1px solid var(--border2); color: var(--cream);
-  padding: 9px 16px; border-radius: 20px; cursor: pointer; min-height: 44px;
+  position: fixed; top: 12px; right: 18px; z-index: 210;
+  font-family: var(--fh); font-size: 0.78rem; font-weight: 700;
+  letter-spacing: 0.02em;
+  background: linear-gradient(135deg, var(--gold2) 0%, #E8C84A 50%, var(--gold) 100%);
+  border: none; color: var(--ink);
+  box-shadow: 0 4px 18px rgba(200,150,62,.3);
+  padding: 9px 18px; border-radius: 999px; cursor: pointer; min-height: 44px; min-width: 44px;
   display: flex; align-items: center; gap: 8px;
+  transition: transform .2s cubic-bezier(.4,0,.2,1), box-shadow .2s ease;
+}
+.cart-toggle:hover { transform: translateY(-2px); box-shadow: 0 8px 26px rgba(200,150,62,.42); }
+.cart-toggle:active { transform: scale(0.96); }
+@media (prefers-reduced-motion: reduce) {
+  .cart-toggle { transition: none; }
+  .cart-toggle:hover { transform: none; }
 }
 .cart-toggle .cart-count {
-  background: var(--gold); color: var(--ink); font-size: 0.7rem;
+  background: var(--ink); color: var(--gold-light); font-size: 0.7rem;
   min-width: 18px; height: 18px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center; font-weight: 700;
+  border: 1px solid rgba(0,0,0,.2);
 }
 .cart-toggle-icon {
-  color: var(--gold); flex-shrink: 0;
+  color: var(--ink); flex-shrink: 0;
+}
+/* Mobile: upper-right, inside the header area, above the promo/ticker band,
+   with iPhone notch/Dynamic Island safety via env(safe-area-inset-top). At
+   narrow widths, hide the "Cart" text label and show just the icon + count
+   badge so it never crowds the logo/menu. */
+@media (max-width: 900px) {
+  .cart-toggle {
+    top: calc(10px + env(safe-area-inset-top));
+    right: 12px;
+    padding: 9px 12px;
+  }
+}
+@media (max-width: 420px) {
+  .cart-toggle-label { display: none; }
+  .cart-toggle { padding: 10px; gap: 0; }
+  .cart-toggle .cart-count { margin-left: 2px; }
 }
 
 .cart-drawer {
@@ -877,9 +921,11 @@ body.shop-body.catalog-view {
   .ticker-inner { animation: none; }
 }
 
-/* Cart toggle sits below header+ticker now, and shop-main gets extra top
-   padding so nothing sits under the fixed header+ticker stack. */
-.cart-toggle { top: 46px; }
+/* shop-main gets extra top padding so page content never sits under the
+   fixed header+ticker stack. The cart toggle itself stays inside the
+   header's own vertical band (see .cart-toggle above) — it must NOT be
+   pushed down to the ticker's offset, or it would sit on top of/behind the
+   ticker band instead of above it. */
 .shop-main { padding-top: 166px; }
 @media (max-width: 900px) {
   /* Header content collapses on mobile but height stays 64px, so no change
@@ -1064,7 +1110,37 @@ body.shop-body.catalog-view {
   letter-spacing: 0.08em; text-transform: uppercase; color: var(--mhw-gold-muted);
 }
 
-/* ── Customer Favorites (Best Sellers) ── */
+/* ── Customer Favorites (Best Sellers) ──
+   Same background-photo + dark-scrim pattern as the hero (.shop-hero-v2-bg)
+   so the section reads dark/on-brand instead of the plain light page
+   background it had before, per request. Text inside always uses the
+   catalog-view "on light" light-text rules further up this file — those
+   already assume a dark surface, so no separate color overrides needed
+   here; the .catalog-view rules for .mhw-eyebrow-onlight/.mhw-heading/
+   .favorites-empty already resolve to light colors, which now have a
+   properly dark surface underneath them. */
+.favorites-section {
+  position: relative; overflow: hidden; isolation: isolate;
+  border-radius: 12px; padding: 48px 40px;
+}
+.favorites-section-bg {
+  position: absolute; inset: 0; z-index: -2;
+  background: var(--mhw-charcoal);
+}
+.favorites-section-bg img {
+  width: 100%; height: 100%; object-fit: cover; object-position: center 30%;
+  display: block;
+}
+.favorites-section-bg::after {
+  content: ''; position: absolute; inset: 0; z-index: -1;
+  background: linear-gradient(180deg,
+    rgba(11,11,11,.92) 0%,
+    rgba(11,11,11,.88) 45%,
+    rgba(11,11,11,.94) 100%);
+}
+.favorites-section-inner { position: relative; z-index: 1; }
+@media (max-width: 640px) { .favorites-section { padding: 32px 20px; } }
+
 .favorites-grid {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px;
 }

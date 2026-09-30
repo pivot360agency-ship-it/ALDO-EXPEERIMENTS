@@ -1111,32 +1111,15 @@ body.shop-body.catalog-view {
 }
 
 /* ── Customer Favorites (Best Sellers) ──
-   Same background-photo + dark-scrim pattern as the hero (.shop-hero-v2-bg)
-   so the section reads dark/on-brand instead of the plain light page
-   background it had before, per request. Text inside always uses the
-   catalog-view "on light" light-text rules further up this file — those
-   already assume a dark surface, so no separate color overrides needed
-   here; the .catalog-view rules for .mhw-eyebrow-onlight/.mhw-heading/
-   .favorites-empty already resolve to light colors, which now have a
-   properly dark surface underneath them. */
+   Solid dark panel (no background photo) so it reads clean and lets the
+   product cards' own light thumbnails stand out, per request. Text inside
+   uses the catalog-view "on light" light-text rules further up this file —
+   those already assume a dark surface. */
 .favorites-section {
-  position: relative; overflow: hidden; isolation: isolate;
+  position: relative; overflow: hidden;
   border-radius: 12px; padding: 48px 40px;
-}
-.favorites-section-bg {
-  position: absolute; inset: 0; z-index: -2;
-  background: var(--mhw-charcoal);
-}
-.favorites-section-bg img {
-  width: 100%; height: 100%; object-fit: cover; object-position: center 30%;
-  display: block;
-}
-.favorites-section-bg::after {
-  content: ''; position: absolute; inset: 0; z-index: -1;
-  background: linear-gradient(180deg,
-    rgba(11,11,11,.92) 0%,
-    rgba(11,11,11,.88) 45%,
-    rgba(11,11,11,.94) 100%);
+  background: linear-gradient(145deg, var(--mhw-charcoal) 0%, #14110d 100%);
+  border: 1px solid rgba(247,244,237,.08);
 }
 .favorites-section-inner { position: relative; z-index: 1; }
 @media (max-width: 640px) { .favorites-section { padding: 32px 20px; } }
@@ -1175,9 +1158,18 @@ body.shop-body.catalog-view {
 .catalog-card:hover .catalog-card-image img { transform: scale(1.035); }
 .catalog-card-image img { transition: transform .45s cubic-bezier(.2,.7,.3,1); }
 
-/* ── For Business block ── */
+/* ── For Business block ──
+   Dark to match the rest of the catalog-view page background (was a light
+   ivory panel before, per request). Card-style children (business-block-
+   visual) keep their own treatment; only the panel's own background and
+   its directly-owned text (the checklist) needed color updates here — the
+   heading/copy/eyebrow already come from .mhw-heading/.mhw-copy/
+   .mhw-eyebrow-onlight, whose .catalog-view overrides already resolve to
+   light colors. */
 .business-block {
-  background: var(--mhw-warm-gray); border-radius: 12px;
+  background: linear-gradient(145deg, var(--mhw-charcoal) 0%, #17130f 100%);
+  border: 1px solid rgba(247,244,237,.1);
+  border-radius: 12px;
   padding: 44px 40px; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 36px; align-items: center;
 }
 @media (max-width: 860px) { .business-block { grid-template-columns: 1fr; padding: 32px 24px; } }
@@ -1186,17 +1178,20 @@ body.shop-body.catalog-view {
   padding: 0;
 }
 .business-block-list li {
-  font-size: 0.86rem; color: var(--mhw-body); display: flex; align-items: center; gap: 7px;
+  font-size: 0.86rem; color: rgba(247,244,237,.82); display: flex; align-items: center; gap: 7px;
 }
-.business-block-list li::before { content: '✓'; color: var(--mhw-gold-muted); font-weight: 700; }
+.business-block-list li::before { content: '✓'; color: var(--mhw-gold); font-weight: 700; }
 .business-block-ctas { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 24px; }
 .business-block-visual {
+  position: relative; overflow: hidden;
   aspect-ratio: 4/3; border-radius: 8px;
-  background:
-    repeating-linear-gradient(60deg, rgba(11,11,11,.05) 0px, rgba(11,11,11,.05) 2px, transparent 2px, transparent 18px),
-    linear-gradient(150deg, var(--mhw-ivory) 0%, var(--mhw-white) 100%);
-  border: 1px solid var(--mhw-warm-gray);
+  background: var(--mhw-charcoal);
+  border: 1px solid rgba(212,167,44,.24);
   display: flex; align-items: center; justify-content: center;
+}
+.business-block-visual img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; object-position: center;
 }
 .business-block-visual-mark { font-family: var(--fd); font-size: 2.6rem; color: var(--mhw-gold-muted); opacity: .55; }
 

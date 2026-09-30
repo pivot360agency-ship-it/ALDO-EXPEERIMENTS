@@ -418,7 +418,7 @@
     return `
       <section class="shop-hero-v2 shop-hero" aria-label="Shop introduction">
         <div class="shop-hero-v2-bg" aria-hidden="true">
-          <img src="/assets/images/shop-hero-craft-lineup.png" alt="" loading="eager" fetchpriority="high" width="1672" height="940">
+          <img src="/assets/images/shop-hero-craft-lineup-v2.png" alt="" loading="eager" fetchpriority="high" width="1672" height="940">
         </div>
         <div class="shop-hero-v2-copy">
           <span class="shop-hero-v2-eyebrow">Personalized With Purpose</span>
@@ -486,7 +486,7 @@
     return `
       <section class="mhw-section favorites-section mhw-reveal" aria-label="Customer favorites">
         <div class="favorites-section-bg" aria-hidden="true">
-          <img src="/assets/images/shop-favorites-bg.png" alt="" loading="lazy" width="1536" height="1024">
+          <img src="/assets/images/shop-favorites-bg-v2.png" alt="" loading="lazy" width="1536" height="1024">
         </div>
         <div class="favorites-section-inner">
           <span class="mhw-eyebrow mhw-eyebrow-onlight">Customer Favorites</span>

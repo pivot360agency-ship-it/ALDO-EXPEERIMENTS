@@ -184,21 +184,22 @@ const ShopifyClient = (() => {
             width
             height
           }
-          priceRange: variants(first: 1) {
-            nodes {
-              price {
-                amount
-                currencyCode
-              }
+          availableForSale
+          priceRange {
+            minVariantPrice {
+              amount
+              currencyCode
+            }
+            maxVariantPrice {
+              amount
+              currencyCode
             }
           }
-          minVariantPrice: variants(first: 250) {
+          images(first: 4) {
             nodes {
-              price {
-                amount
-                currencyCode
-              }
-              availableForSale
+              id
+              url
+              altText
             }
           }
           collections(first: 5) {
@@ -216,29 +217,98 @@ const ShopifyClient = (() => {
   // until Shopify reports no more pages) and normalizes each into the
   // shape the catalog grid needs. Never touches Draft/unpublished products
   // — see the comment on CATALOG_QUERY above.
+  // Short-lived session cache: coming Back from a product page (or reloading
+  // within a few minutes) shows the catalog instantly instead of re-fetching
+  // every product. Read-only display data only — the product page and the
+  // cart always fetch live from Shopify, so stock/price at purchase time is
+  // never taken from this cache. Versioned key so a shape change never
+  // serves stale-shaped data.
+  const CATALOG_CACHE_KEY = 'vimprint_catalog_v2';
+  const CATALOG_CACHE_TTL_MS = 5 * 60 * 1000;
+
+  function readCatalogCache() {
+    try {
+      const raw = sessionStorage.getItem(CATALOG_CACHE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || !Array.isArray(parsed.products) || !parsed.products.length) return null;
+      if (Date.now() - parsed.t > CATALOG_CACHE_TTL_MS) return null;
+      return parsed.products;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function writeCatalogCache(products) {
+    try {
+      sessionStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify({ t: Date.now(), products }));
+    } catch (e) {
+      /* storage unavailable or full — just skip caching */
+    }
+  }
+
+  // One automatic retry for transient failures (dropped connection, Shopify
+  // 429/5xx) on catalog page reads only. Never used for cart mutations,
+  // where a blind retry could add an item twice.
+  async function fetchCatalogPage(variables) {
+    try {
+      return await request(CATALOG_QUERY, variables);
+    } catch (err) {
+      const transient = err && (err.kind === 'network' || (err.kind === 'http' && /status (429|5\d\d)/.test(err.message || '')));
+      if (!transient) throw err;
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      return request(CATALOG_QUERY, variables);
+    }
+  }
+
   async function getAllActiveProducts() {
+    const cached = readCatalogCache();
+    if (cached) return cached;
+
     const all = [];
     let after = null;
     let hasNextPage = true;
     let guard = 0; // safety cap so a pagination bug can't loop forever
     while (hasNextPage && guard < 20) {
       guard += 1;
-      const data = await request(CATALOG_QUERY, { first: 50, after });
+      const data = await fetchCatalogPage({ first: 50, after });
       const conn = data.products;
       conn.nodes.forEach((raw) => all.push(normalizeCatalogProduct(raw)));
       hasNextPage = conn.pageInfo.hasNextPage;
       after = conn.pageInfo.endCursor;
     }
+    writeCatalogCache(all);
     return all;
   }
 
   function normalizeCatalogProduct(raw) {
-    const variants = raw.minVariantPrice.nodes;
-    const prices = variants.map((v) => Number(v.price.amount));
-    const minPrice = prices.length ? Math.min(...prices) : null;
-    const maxPrice = prices.length ? Math.max(...prices) : null;
-    const currency = variants[0] ? variants[0].price.currencyCode : 'USD';
-    const anyAvailable = variants.some((v) => v.availableForSale);
+    // Price range and availability come straight from the product (Shopify
+    // computes min/max across ALL variants and "any variant available for
+    // sale") — same values the old per-variant scan produced, without
+    // downloading up to 250 variants for every product.
+    const minAmount = raw.priceRange && raw.priceRange.minVariantPrice
+      ? Number(raw.priceRange.minVariantPrice.amount) : null;
+    const maxAmount = raw.priceRange && raw.priceRange.maxVariantPrice
+      ? Number(raw.priceRange.maxVariantPrice.amount) : null;
+    const minPrice = minAmount;
+    const maxPrice = minAmount === null ? null : (maxAmount === null ? minAmount : maxAmount);
+    const currency = raw.priceRange && raw.priceRange.minVariantPrice
+      ? raw.priceRange.minVariantPrice.currencyCode : 'USD';
+    const anyAvailable = !!raw.availableForSale;
+
+    // Swipeable card gallery: featured image first, then the rest, deduped.
+    const galleryImages = [];
+    const seenKeys = new Set();
+    const pushImage = (img) => {
+      if (!img || !img.url) return;
+      const key = dedupeKey(img);
+      if (key && seenKeys.has(key)) return;
+      if (key) seenKeys.add(key);
+      galleryImages.push({ url: img.url, altText: altTextFor(img, raw.title, null) });
+    };
+    pushImage(raw.featuredImage);
+    ((raw.images && raw.images.nodes) || []).forEach(pushImage);
+
     return {
       id: raw.id,
       handle: raw.handle,
@@ -248,6 +318,7 @@ const ShopifyClient = (() => {
       image: raw.featuredImage
         ? { url: raw.featuredImage.url, altText: altTextFor(raw.featuredImage, raw.title, null) }
         : null,
+      images: galleryImages,
       minPrice,
       maxPrice,
       currency,

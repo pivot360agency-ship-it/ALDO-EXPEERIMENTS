@@ -105,9 +105,9 @@
   };
 
   const CATEGORY_CARDS = [
-    { label: 'Tumblers & Gifts', match: 'tumblers-gifts', title: 'Tumblers & Gifts', desc: 'Engraved drinkware and keepsakes for everyday and celebration.', fixedImage: '/assets/images/craft-tumblers-gifts.png' },
-    { label: 'Military Awards', match: 'military-awards', title: 'Military Awards', desc: 'Custom plaques and recognition pieces for service and retirement.', fixedImage: '/assets/images/craft-military-awards.png' },
-    { label: 'Embroidered Apparel', match: 'embroidered-apparel', title: 'Embroidered Apparel', desc: 'Logo and name embroidery on shirts, hats and outerwear.', fixedImage: '/assets/images/craft-embroidered-apparel.png' },
+    { label: 'Tumblers & Gifts', match: 'tumblers-gifts', title: 'Tumblers & Gifts', desc: 'Engraved drinkware and keepsakes for everyday and celebration.', fixedImage: '/assets/images/craft-tumblers-gifts.webp' },
+    { label: 'Military Awards', match: 'military-awards', title: 'Military Awards', desc: 'Custom plaques and recognition pieces for service and retirement.', fixedImage: '/assets/images/craft-military-awards.webp' },
+    { label: 'Embroidered Apparel', match: 'embroidered-apparel', title: 'Embroidered Apparel', desc: 'Logo and name embroidery on shirts, hats and outerwear.', fixedImage: '/assets/images/craft-embroidered-apparel.webp' },
     { label: 'Business Uniforms', match: 'business-uniforms', title: 'Business Uniforms', desc: 'Branded uniforms and workwear for professional teams.' },
     { label: 'Pet Memorials', match: 'pet-memorials', title: 'Pet Memorials', desc: 'Lasting, personalized tributes to a beloved companion.' },
   ];
@@ -162,6 +162,8 @@
     try {
       state.product = await ShopifyClient.getProductByHandle(handle);
       state.isQuoteOnly = ShopifyClient.hasTag(state.product, QUOTE_ONLY_TAG);
+      trackProduct('view_item', state.product, null, 1);
+      updateWhatsAppLink(state.product);
 
       // Breadcrumb: Home / Shop All / {Collection} / {Product} when the
       // product belongs to a real collection, otherwise the Fase 2 default
@@ -431,7 +433,7 @@
           <p class="shop-hero-v2-trust">Made in Virginia &middot; Fast Turnaround &middot; Local Pickup Available</p>
         </div>
         <div class="shop-hero-v2-visual" aria-hidden="true">
-          <img src="/assets/images/shop-favorites-bg-v2.png" alt="" loading="eager" width="1536" height="1024">
+          <img src="/assets/images/shop-favorites-bg-v2.webp" alt="" loading="eager" width="1536" height="1024">
         </div>
       </section>`;
   }
@@ -530,7 +532,7 @@
             </div>
           </div>
           <div class="business-block-visual" aria-hidden="true">
-            <img src="/assets/images/shop-hero-craft-lineup-v2.png" alt="" loading="lazy" width="1672" height="940">
+            <img src="/assets/images/shop-hero-craft-lineup-v2.webp" alt="" loading="lazy" width="1672" height="940">
           </div>
         </div>
       </section>`;
@@ -622,7 +624,7 @@
         <div class="catalog-header mhw-reveal" id="catalogGridAnchor">
           <span class="mhw-eyebrow mhw-eyebrow-onlight">Explore the Collection</span>
           <h1 class="mhw-sr-only">Shop All &mdash; V Imprint Designs</h1>
-          <p style="font-family:var(--fd);font-size:clamp(1.8rem,3vw,2.4rem);font-weight:600;color:var(--mhw-body);margin-bottom:8px;">Explore the Collection</p>
+          <p class="catalog-section-heading" style="font-family:var(--fd);font-size:clamp(1.8rem,3vw,2.4rem);font-weight:600;margin-bottom:8px;">Explore the Collection</p>
           <p>Personalized, laser-engraved &amp; embroidered gifts &mdash; made to order.</p>
         </div>
 
@@ -654,8 +656,8 @@
         </div>
 
         ${products.length ? `
-        <div class="catalog-grid mhw-reveal">
-          ${products.map(renderCatalogCard).join('')}
+        <div class="catalog-grid">
+          ${products.map((p) => renderCatalogCard(p)).join('')}
         </div>` : `
         <div class="catalog-empty">
           <p>No products found in this category yet.</p>
@@ -673,6 +675,72 @@
     initScrollReveal();
   }
 
+  // Shopify's CDN resizes on the fly with ?width=. Product cards are ~170–230px
+  // wide, so asking for the original (often 2000px+) photo was the main cause
+  // of the slow image loading. Non-Shopify URLs are returned untouched.
+  // ── Analytics (Google Ads gtag + Meta Pixel, already loaded in index.html).
+  // Fire-and-forget: never throws, never blocks the shopper. Purchase itself
+  // happens on Shopify's checkout domain and is tracked there.
+  function gidNum(gid) {
+    const m = String(gid || '').match(/(\d+)$/);
+    return m ? m[1] : '';
+  }
+  function track(name, d) {
+    try {
+      d = d || {};
+      const value = Number(d.value) || 0;
+      const currency = d.currency || 'USD';
+      const metaIds = d.contentIds || [];
+      const map = {
+        view_item: 'ViewContent', add_to_cart: 'AddToCart',
+        begin_checkout: 'InitiateCheckout', generate_lead: 'Lead',
+      };
+      if (typeof window.gtag === 'function') {
+        const g = { currency, value };
+        if (d.items) g.items = d.items;
+        if (d.method) g.method = d.method;
+        window.gtag('event', name, g);
+      }
+      if (typeof window.fbq === 'function' && map[name]) {
+        const f = { currency, value };
+        if (metaIds.length) { f.content_ids = metaIds; f.content_type = 'product'; }
+        if (d.contentName) f.content_name = d.contentName;
+        if (d.method) f.content_category = d.method;
+        window.fbq('track', map[name], f);
+      }
+    } catch (e) { /* analytics must never break the shop */ }
+  }
+  function trackProduct(name, p, v, qty, extra) {
+    if (!p) return;
+    const variant = v || (p.variants && p.variants[0]) || null;
+    const price = variant && variant.price ? Number(variant.price.amount) : 0;
+    const currency = variant && variant.price ? variant.price.currencyCode : 'USD';
+    const q = qty || 1;
+    const pid = gidNum(p.id);
+    const vid = variant ? gidNum(variant.id) : '';
+    track(name, Object.assign({
+      value: price * q, currency,
+      items: [{ item_id: pid, item_name: p.title, item_variant: vid, price, quantity: q }],
+      contentIds: pid ? [vid ? `shopify_US_${pid}_${vid}` : pid] : [],
+      contentName: p.title,
+    }, extra || {}));
+  }
+
+  function shopifyImgUrl(url, width) {
+    try {
+      const u = new URL(url);
+      if (u.hostname !== 'cdn.shopify.com' && !u.pathname.includes('/cdn/shop/')) return url;
+      u.searchParams.set('width', String(width));
+      return u.toString();
+    } catch (e) {
+      return url;
+    }
+  }
+
+  function shopifyImgSrcset(url, widths) {
+    return (widths || [240, 360, 480, 640]).map((w) => `${shopifyImgUrl(url, w)} ${w}w`).join(', ');
+  }
+
   function renderCatalogCard(p) {
     const priceLabel = p.minPrice === null
       ? ''
@@ -681,20 +749,33 @@
         : formatMoney(p.minPrice, p.currency);
 
     const href = `/shop/?handle=${encodeURIComponent(p.handle)}`;
-    const primaryCollection = pickPrimaryCollection(p.collections);
-    const collectionLabel = primaryCollection ? primaryCollection.title : '';
     // "Made to Order" — a product tagged accordingly in Shopify that is
     // neither quote-only nor sold out. Derived entirely from p.tags, which
     // the catalog query already fetches — no new API call.
     const isMadeToOrder = !p.isQuoteOnly && !p.soldOut && ShopifyClient.hasTag(p, 'made-to-order');
 
+    const placeholderSrc = `/shop/assets/placeholders/placeholder-${ShopifyClient.placeholderCategoryFor(p)}.svg`;
+    // Swipeable preview: every product image Shopify returned (max 4). A
+    // product with a single image renders exactly like before (no dots).
+    const gallery = (p.images && p.images.length) ? p.images : (p.image ? [p.image] : []);
+    const multi = gallery.length > 1;
+
     return `
       <a class="catalog-card" href="${escapeHtml(href)}" data-handle="${escapeHtml(p.handle)}">
-        <div class="catalog-card-image">
-          ${p.image
-            ? `<img src="${escapeHtml(p.image.url)}" alt="${escapeHtml(p.image.altText)}" loading="lazy" width="400" height="400" data-placeholder-fallback="/shop/assets/placeholders/placeholder-${escapeHtml(ShopifyClient.placeholderCategoryFor(p))}.svg">`
+        <div class="catalog-card-image${multi ? ' has-gallery at-start' : ''}">
+          ${gallery.length
+            ? `<div class="catalog-card-gallery"${multi ? ' data-gallery' : ''}>
+                 ${gallery.map((img, idx) => `
+                 <div class="catalog-card-slide">
+                   <img ${idx === 0 ? 'src' : 'data-src'}="${escapeHtml(shopifyImgUrl(img.url, 480))}" ${idx === 0 ? 'srcset' : 'data-srcset'}="${escapeHtml(shopifyImgSrcset(img.url))}" sizes="(min-width:1360px) 230px, (min-width:1000px) 23vw, (min-width:700px) 31vw, 47vw" alt="${escapeHtml(img.altText)}" loading="lazy" decoding="async" width="400" height="400" data-placeholder-fallback="${escapeHtml(placeholderSrc)}">
+                 </div>`).join('')}
+               </div>
+               ${multi ? `
+               <span class="catalog-card-nav catalog-card-nav-prev" data-gallery-dir="-1" aria-hidden="true">&#8249;</span>
+               <span class="catalog-card-nav catalog-card-nav-next" data-gallery-dir="1" aria-hidden="true">&#8250;</span>
+               <span class="catalog-card-dots" aria-hidden="true">${gallery.map((_, i) => `<i${i === 0 ? ' class="on"' : ''}></i>`).join('')}</span>` : ''}`
             : `<div class="catalog-card-image-empty" aria-hidden="true">
-                 <img class="catalog-card-placeholder-img" src="/shop/assets/placeholders/placeholder-${escapeHtml(ShopifyClient.placeholderCategoryFor(p))}.svg" alt="" loading="lazy" width="400" height="400">
+                 <img class="catalog-card-placeholder-img" src="${escapeHtml(placeholderSrc)}" alt="" loading="lazy" width="400" height="400">
                </div>`}
           ${p.isBestSeller ? '<span class="catalog-badge catalog-badge-gold">Best Seller</span>' : ''}
           ${p.isQuoteOnly ? '<span class="catalog-badge catalog-badge-outline">Request a Quote</span>' : ''}
@@ -702,12 +783,10 @@
           ${isMadeToOrder ? '<span class="catalog-badge catalog-badge-made-to-order">Made to Order</span>' : ''}
         </div>
         <div class="catalog-card-body">
-          ${collectionLabel ? `<span class="catalog-card-collection">${escapeHtml(collectionLabel)}</span>` : ''}
-          <h2 class="catalog-card-title">${escapeHtml(p.title)}</h2>
-          ${priceLabel ? `<div class="catalog-card-price">${priceLabel}</div>` : ''}
-          <span class="catalog-card-cta ${p.isQuoteOnly ? 'catalog-card-cta-outline' : ''}">
-            ${p.isQuoteOnly ? 'Request a Custom Quote' : 'View Product'}
-          </span>
+          <h2 class="catalog-card-title" title="${escapeHtml(p.title)}">${escapeHtml(p.title)}</h2>
+          ${p.isQuoteOnly
+            ? '<div class="catalog-card-price catalog-card-price-quote">Custom quote</div>'
+            : (priceLabel ? `<div class="catalog-card-price">${priceLabel}</div>` : '')}
         </div>
       </a>`;
   }
@@ -745,8 +824,56 @@
     });
   }
 
+  // Swipeable card galleries. Touch swipe is native (CSS scroll-snap); this
+  // only keeps the dots / edge arrows in sync and powers the desktop arrow
+  // buttons. Arrow clicks are swallowed so they never open the product page.
+  function bindCatalogGalleries() {
+    // Only the first photo of each card loads up front. The other photos
+    // are fetched the first time the shopper touches, hovers, focuses or
+    // scrolls that card's gallery (or taps an arrow).
+    const hydrate = (gallery) => {
+      if (gallery.dataset.hydrated) return;
+      gallery.dataset.hydrated = '1';
+      gallery.querySelectorAll('img[data-src]').forEach((img) => {
+        img.loading = 'eager';
+        if (img.dataset.srcset) img.srcset = img.dataset.srcset;
+        img.src = img.dataset.src;
+        img.removeAttribute('data-src');
+        img.removeAttribute('data-srcset');
+      });
+    };
+    root.querySelectorAll('.catalog-card-gallery[data-gallery]').forEach((gallery) => {
+      const wrap = gallery.closest('.catalog-card-image');
+      ['touchstart', 'pointerenter', 'focusin', 'scroll'].forEach((ev) => {
+        wrap.addEventListener(ev, () => hydrate(gallery), { passive: true, once: true });
+      });
+      const dots = wrap.querySelectorAll('.catalog-card-dots i');
+      const sync = () => {
+        const w = gallery.clientWidth || 1;
+        const idx = Math.max(0, Math.min(dots.length - 1, Math.round(gallery.scrollLeft / w)));
+        dots.forEach((d, i) => d.classList.toggle('on', i === idx));
+        wrap.classList.toggle('at-start', idx === 0);
+        wrap.classList.toggle('at-end', idx === dots.length - 1);
+      };
+      gallery.addEventListener('scroll', sync, { passive: true });
+      sync();
+    });
+
+    root.querySelectorAll('.catalog-card-nav').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const gallery = btn.closest('.catalog-card-image').querySelector('.catalog-card-gallery');
+        if (!gallery) return;
+        hydrate(gallery);
+        gallery.scrollBy({ left: Number(btn.dataset.galleryDir) * gallery.clientWidth, behavior: 'smooth' });
+      });
+    });
+  }
+
   function bindCatalogEvents() {
     bindImageFallbacks();
+    bindCatalogGalleries();
     root.querySelectorAll('.catalog-filter-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         catalogState.activeFilter = btn.dataset.filter;
@@ -909,7 +1036,7 @@
     return `
       <div class="product-gallery">
         <div class="product-gallery-main">
-          <img src="${escapeHtml(activeImg.url)}" alt="${escapeHtml(galleryAlt(activeImg, p.title))}"
+          <img src="${escapeHtml(shopifyImgUrl(activeImg.url, 900))}" srcset="${escapeHtml(shopifyImgSrcset(activeImg.url, [480, 640, 900, 1200, 1600]))}" sizes="(min-width:1000px) 560px, 100vw" alt="${escapeHtml(galleryAlt(activeImg, p.title))}"
             loading="eager" fetchpriority="high" decoding="async"
             data-fallback-src="${escapeHtml(featuredUrl)}">
         </div>
@@ -921,7 +1048,7 @@
               .map(
                 (img, i) => `
               <div class="product-gallery-slide" data-slide-index="${i}">
-                <img src="${escapeHtml(img.url)}" alt="${escapeHtml(galleryAlt(img, p.title))}"
+                <img src="${escapeHtml(shopifyImgUrl(img.url, 800))}" srcset="${escapeHtml(shopifyImgSrcset(img.url, [480, 640, 800, 1000]))}" sizes="100vw" alt="${escapeHtml(galleryAlt(img, p.title))}"
                   loading="${i === 0 ? 'eager' : 'lazy'}" data-fallback-src="${escapeHtml(featuredUrl)}">
               </div>`
               )
@@ -946,7 +1073,7 @@
             <button type="button" class="${i === state.activeImageIndex ? 'active' : ''}"
               data-thumb-index="${i}" role="tab" aria-selected="${i === state.activeImageIndex}"
               aria-label="View image ${i + 1} of ${images.length}">
-              <img src="${escapeHtml(img.url)}" alt="" loading="lazy" data-fallback-src="${escapeHtml(featuredUrl)}">
+              <img src="${escapeHtml(shopifyImgUrl(img.url, 200))}" alt="" loading="lazy" width="100" height="100" data-fallback-src="${escapeHtml(featuredUrl)}">
             </button>`
             )
             .join('')}
@@ -1322,7 +1449,10 @@
             });
             const mainImg = root.querySelector('.product-gallery-main img');
             const images = state.product.images;
-            if (mainImg && images[index]) mainImg.src = images[index].url;
+            if (mainImg && images[index]) {
+              mainImg.removeAttribute('srcset');
+              mainImg.src = shopifyImgUrl(images[index].url, 1200);
+            }
           }
         }, 120);
       });
@@ -1505,6 +1635,7 @@
         persistCartId(state.cart.id);
       }
       reportCartWarnings(state.cart);
+      trackProduct('add_to_cart', state.product, state.selectedVariant, state.quantity);
       renderCartDrawer();
       openCartDrawer();
       // Reset personalization inputs so a second, different order for the
@@ -1715,6 +1846,28 @@
   function preventDisabledCheckout(e) {
     e.preventDefault();
   }
+
+  // ── WhatsApp + lead tracking ──────────────────────────────────────────
+  const WA_NUMBER = '17575031733';
+  function updateWhatsAppLink(p) {
+    const a = document.getElementById('shopWa');
+    if (!a) return;
+    const msg = p
+      ? `Hi V Imprint Designs! I have a question about "${p.title}": ${window.location.origin}/shop/?handle=${p.handle}`
+      : 'Hi V Imprint Designs! I have a question about a custom product.';
+    a.href = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`;
+  }
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest && e.target.closest('#shopWa, .quote-only-cta, #cartCheckoutBtn');
+    if (!t) return;
+    if (t.id === 'cartCheckoutBtn') {
+      if (state.cart && state.cart.checkoutUrl && t.getAttribute('aria-disabled') !== 'true') {
+        track('begin_checkout', { value: Number(state.cart.cost && state.cart.cost.totalAmount && state.cart.cost.totalAmount.amount) || 0 });
+      }
+      return;
+    }
+    trackProduct('generate_lead', state.product, state.selectedVariant, 1, { method: t.id === 'shopWa' ? 'whatsapp' : 'quote' });
+  }, true);
 
   function bindCartLineEvents() {
     cartBodyEl.querySelectorAll('.cart-line-remove').forEach((btn) => {

@@ -16,3 +16,19 @@
   [headers.values]
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Caché de imágenes y video en el navegador: 1 día, y después se muestra la
+# copia guardada mientras se revisa en segundo plano si hay una nueva. Se
+# eligió un plazo corto a propósito: si reemplazas una foto conservando el
+# mismo nombre de archivo, los visitantes la verán actualizada pasado ese
+# día (en su siguiente visita). Cada despliegue en Netlify limpia su propia
+# caché automáticamente.
+[[headers]]
+  for = "/assets/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
+
+[[headers]]
+  for = "/assets/video/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"

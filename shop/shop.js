@@ -114,7 +114,7 @@
 
   const catalogState = {
     products: null, // null = not loaded yet; [] = loaded, empty
-    activeFilter: 'All Products',
+    activeFilter: 'All',
     sort: 'featured', // 'featured' | 'price-asc' | 'price-desc' — client-side only, existing fetched data
   };
 
@@ -418,22 +418,18 @@
 
   function renderShopHero() {
     return `
-      <section class="shop-hero-v2 shop-hero" aria-label="Shop introduction">
-        <div class="shop-hero-v2-bg" aria-hidden="true">
-          <img src="/assets/images/shop-hero-v-logo-bg.webp" alt="" loading="eager" fetchpriority="high" width="1717" height="916">
-        </div>
-        <div class="shop-hero-v2-copy">
-          <span class="shop-hero-v2-eyebrow">Personalized With Purpose</span>
-          <p class="shop-hero-v2-heading"><span>Made Personal.</span><span>Made to Last.</span></p>
-          <p class="shop-hero-v2-body">Custom embroidery, laser engraving, military awards and meaningful gifts&mdash;crafted with precision in Virginia.</p>
-          <div class="shop-hero-v2-ctas">
+      <section class="shop-hero-v3" aria-label="Shop introduction">
+        <img class="shop-hero-v3-img" src="/assets/images/shop-hero-flag-plaque.webp" alt="Laser-engraved American flag recognition plaque with personalized plate" loading="eager" fetchpriority="high" width="1608" height="1290">
+        <div class="shop-hero-v3-scrim" aria-hidden="true"></div>
+        <div class="shop-hero-v3-copy">
+          <span class="shop-hero-v3-eyebrow">Personalized With Purpose</span>
+          <p class="shop-hero-v3-heading"><span>Made Personal.</span><span>Made to Last.</span></p>
+          <p class="shop-hero-v3-body">Custom engraving, embroidery, military awards and meaningful gifts&mdash;crafted with precision in Virginia.</p>
+          <div class="shop-hero-v3-ctas">
             <button type="button" class="shop-hero-cta shop-hero-cta-primary" id="heroShopCta">Shop Best Sellers</button>
-            <button type="button" class="shop-hero-cta shop-hero-cta-outline" id="heroMilitaryCta" data-filter-trigger="Military Awards">Explore Military Awards</button>
+            <button type="button" class="shop-hero-cta shop-hero-cta-outline" id="heroMilitaryCta" data-filter-trigger="Military Awards">Military Awards</button>
           </div>
-          <p class="shop-hero-v2-trust">Made in Virginia &middot; Fast Turnaround &middot; Local Pickup Available</p>
-        </div>
-        <div class="shop-hero-v2-visual" aria-hidden="true">
-          <img src="/assets/images/shop-favorites-bg-v2.webp" alt="" loading="eager" width="1536" height="1024">
+          <p class="shop-hero-v3-trust">Made in Virginia &middot; Fast Turnaround &middot; Local Pickup</p>
         </div>
       </section>`;
   }
@@ -483,20 +479,53 @@
     return all.filter((p) => p.collections.some((c) => c.handle === BEST_SELLERS_HANDLE));
   }
 
-  function renderFavorites() {
-    const favorites = bestSellerProducts();
+  // Horizontal "shelf": every product section (Best Sellers and each
+  // category) uses the same swipeable row and the same card size.
+  function renderShelf(id, title, list) {
     return `
-      <section class="mhw-section favorites-section mhw-reveal" aria-label="Customer favorites">
-        <div class="favorites-section-inner">
-          <span class="mhw-eyebrow mhw-eyebrow-onlight">Customer Favorites</span>
-          <h2 class="mhw-heading">Best Sellers</h2>
-          ${favorites.length ? `
-          <div class="favorites-grid">
-            ${favorites.map(renderCatalogCard).join('')}
-          </div>` : `
-          <p class="favorites-empty">Best sellers will appear here once available.</p>`}
+      <section class="shelf-section" id="${escapeHtml(id)}" aria-label="${escapeHtml(title)}">
+        <div class="shelf-head">
+          <h2 class="shelf-title">${escapeHtml(title)}</h2>
+          <div class="shelf-arrows" aria-hidden="true">
+            <button type="button" class="shelf-arrow" data-shelf-dir="-1" tabindex="-1">&#8249;</button>
+            <button type="button" class="shelf-arrow" data-shelf-dir="1" tabindex="-1">&#8250;</button>
+          </div>
+        </div>
+        <div class="shelf" data-shelf>
+          ${list.map((p) => renderCatalogCard(p)).join('')}
         </div>
       </section>`;
+  }
+
+  function sortCatalogList(list) {
+    if (catalogState.sort === 'price-asc' || catalogState.sort === 'price-desc') {
+      return list.slice().sort((a, b) => {
+        const pa = a.minPrice === null ? Infinity : a.minPrice;
+        const pb = b.minPrice === null ? Infinity : b.minPrice;
+        return catalogState.sort === 'price-asc' ? pa - pb : pb - pa;
+      });
+    }
+    return list;
+  }
+
+  function renderShelves(products) {
+    if (catalogState.activeFilter !== 'All') {
+      return renderShelf('catalogShelf', catalogState.activeFilter, products);
+    }
+    const all = catalogState.products || [];
+    const out = [];
+    const best = sortCatalogList(bestSellerProducts());
+    if (best.length) out.push(renderShelf('bestSellers', 'Best Sellers', best));
+    CATALOG_FILTERS.forEach((f) => {
+      if (!f.match) return;
+      const list = sortCatalogList(all.filter((p) => p.collections.some((c) => c.handle === f.match)));
+      if (list.length) out.push(renderShelf('shelf-' + f.match, f.label, list));
+    });
+    // Products that belong to none of the filter collections still show up.
+    const handles = new Set(CATALOG_FILTERS.filter((f) => f.match).map((f) => f.match));
+    const rest = sortCatalogList(all.filter((p) => !p.collections.some((c) => handles.has(c.handle))));
+    if (rest.length) out.push(renderShelf('shelf-more', 'More to Explore', rest));
+    return out.join('');
   }
 
   function renderMilitaryEditorial() {
@@ -618,54 +647,38 @@
     root.innerHTML = `
       <div class="catalog">
         ${renderShopHero()}
-        ${renderCategoryCards()}
-        ${renderFavorites()}
-
-        <div class="catalog-header mhw-reveal" id="catalogGridAnchor">
-          <span class="mhw-eyebrow mhw-eyebrow-onlight">Explore the Collection</span>
+        <div class="catalog-bar" id="catalogGridAnchor">
           <h1 class="mhw-sr-only">Shop All &mdash; V Imprint Designs</h1>
-          <p class="catalog-section-heading" style="font-family:var(--fd);font-size:clamp(1.8rem,3vw,2.4rem);font-weight:600;margin-bottom:8px;">Explore the Collection</p>
-          <p>Personalized, laser-engraved &amp; embroidered gifts &mdash; made to order.</p>
-        </div>
-
-        <div class="catalog-filters mhw-reveal" role="tablist" aria-label="Filter products by category">
-          ${CATALOG_FILTERS.map(
-            (f) => `
-            <button type="button" class="catalog-filter-btn ${f.label === catalogState.activeFilter ? 'active' : ''}"
-              data-filter="${escapeHtml(f.label)}" role="tab" aria-selected="${f.label === catalogState.activeFilter}">
-              ${escapeHtml(f.label)}
-            </button>`
-          ).join('')}
-        </div>
-
-        <div class="catalog-toolbar mhw-reveal">
-          <div class="catalog-resultsbar" style="margin:0;">
+          <div class="catalog-filters" role="tablist" aria-label="Filter products by category">
+            ${CATALOG_FILTERS.map(
+              (f) => `
+              <button type="button" class="catalog-filter-btn ${f.label === catalogState.activeFilter ? 'active' : ''}"
+                data-filter="${escapeHtml(f.label)}" role="tab" aria-selected="${f.label === catalogState.activeFilter}">
+                ${escapeHtml(f.label)}
+              </button>`
+            ).join('')}
+          </div>
+          <div class="catalog-toolbar">
             <span class="catalog-results-count" id="catalogResultsCount" role="status" aria-live="polite">
-              Showing ${products.length} product${products.length === 1 ? '' : 's'}
+              ${products.length} product${products.length === 1 ? '' : 's'}
             </span>
             ${catalogState.activeFilter !== 'All' ? `<button type="button" class="catalog-clear-btn" id="catalogClearBtn">Clear filters</button>` : ''}
+            <label>
+              <span class="mhw-sr-only">Sort products</span>
+              <select class="catalog-sort" id="catalogSort" aria-label="Sort products">
+                <option value="featured" ${catalogState.sort === 'featured' ? 'selected' : ''}>Featured</option>
+                <option value="price-asc" ${catalogState.sort === 'price-asc' ? 'selected' : ''}>Price: Low to High</option>
+                <option value="price-desc" ${catalogState.sort === 'price-desc' ? 'selected' : ''}>Price: High to Low</option>
+              </select>
+            </label>
           </div>
-          <label>
-            <span class="mhw-sr-only">Sort products</span>
-            <select class="catalog-sort" id="catalogSort" aria-label="Sort products">
-              <option value="featured" ${catalogState.sort === 'featured' ? 'selected' : ''}>Featured</option>
-              <option value="price-asc" ${catalogState.sort === 'price-asc' ? 'selected' : ''}>Price: Low to High</option>
-              <option value="price-desc" ${catalogState.sort === 'price-desc' ? 'selected' : ''}>Price: High to Low</option>
-            </select>
-          </label>
         </div>
 
-        ${products.length ? `
-        <div class="catalog-grid">
-          ${products.map((p) => renderCatalogCard(p)).join('')}
-        </div>` : `
+        ${products.length ? renderShelves(products) : `
         <div class="catalog-empty">
           <p>No products found in this category yet.</p>
         </div>`}
 
-        ${renderMilitaryEditorial()}
-        ${renderBusinessBlock()}
-        ${renderTrustStripCatalog()}
         ${renderNewsletter()}
         ${renderShopFooter()}
       </div>
@@ -761,7 +774,7 @@
     const multi = gallery.length > 1;
 
     return `
-      <a class="catalog-card" href="${escapeHtml(href)}" data-handle="${escapeHtml(p.handle)}">
+      <a class="catalog-card${p.soldOut && !p.isQuoteOnly ? ' is-soldout' : ''}" href="${escapeHtml(href)}" data-handle="${escapeHtml(p.handle)}">
         <div class="catalog-card-image${multi ? ' has-gallery at-start' : ''}">
           ${gallery.length
             ? `<div class="catalog-card-gallery"${multi ? ' data-gallery' : ''}>
@@ -777,16 +790,12 @@
             : `<div class="catalog-card-image-empty" aria-hidden="true">
                  <img class="catalog-card-placeholder-img" src="${escapeHtml(placeholderSrc)}" alt="" loading="lazy" width="400" height="400">
                </div>`}
-          ${p.isBestSeller ? '<span class="catalog-badge catalog-badge-gold">Best Seller</span>' : ''}
-          ${p.isQuoteOnly ? '<span class="catalog-badge catalog-badge-outline">Request a Quote</span>' : ''}
-          ${p.soldOut && !p.isQuoteOnly ? '<span class="catalog-badge catalog-badge-muted">Sold Out</span>' : ''}
-          ${isMadeToOrder ? '<span class="catalog-badge catalog-badge-made-to-order">Made to Order</span>' : ''}
         </div>
         <div class="catalog-card-body">
           <h2 class="catalog-card-title" title="${escapeHtml(p.title)}">${escapeHtml(p.title)}</h2>
           ${p.isQuoteOnly
             ? '<div class="catalog-card-price catalog-card-price-quote">Custom quote</div>'
-            : (priceLabel ? `<div class="catalog-card-price">${priceLabel}</div>` : '')}
+            : (priceLabel ? `<div class="catalog-card-price">${priceLabel}${p.soldOut ? ' <span class="catalog-card-soldout">Sold out</span>' : ''}</div>` : (p.soldOut ? '<div class="catalog-card-price"><span class="catalog-card-soldout">Sold out</span></div>' : ''))}
         </div>
       </a>`;
   }
@@ -871,9 +880,30 @@
     });
   }
 
+  // Desktop arrows for the swipeable shelves (touch swipe is native).
+  function bindShelves() {
+    root.querySelectorAll('.shelf-section').forEach((sec) => {
+      const shelf = sec.querySelector('[data-shelf]');
+      const arrows = sec.querySelectorAll('.shelf-arrow');
+      const sync = () => {
+        const max = shelf.scrollWidth - shelf.clientWidth - 2;
+        arrows[0].disabled = shelf.scrollLeft <= 2;
+        arrows[1].disabled = shelf.scrollLeft >= max;
+        sec.classList.toggle('shelf-fits', max <= 0);
+      };
+      arrows.forEach((a) => a.addEventListener('click', () => {
+        shelf.scrollBy({ left: Number(a.dataset.shelfDir) * shelf.clientWidth * 0.85, behavior: 'smooth' });
+      }));
+      shelf.addEventListener('scroll', sync, { passive: true });
+      window.addEventListener('resize', sync, { passive: true });
+      sync();
+    });
+  }
+
   function bindCatalogEvents() {
     bindImageFallbacks();
     bindCatalogGalleries();
+    bindShelves();
     root.querySelectorAll('.catalog-filter-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         catalogState.activeFilter = btn.dataset.filter;
@@ -885,7 +915,7 @@
     // Hero primary CTA: scroll to Best Sellers (Customer Favorites) section,
     // no filter change — per spec's "Shop Best Sellers" button.
     document.getElementById('heroShopCta')?.addEventListener('click', () => {
-      root.querySelector('.favorites-grid, .favorites-empty')?.closest('section')
+      (document.getElementById('bestSellers') || document.getElementById('catalogGridAnchor'))
         ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
 

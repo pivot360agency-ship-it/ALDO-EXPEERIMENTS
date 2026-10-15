@@ -347,7 +347,7 @@ const ShopifyClient = (() => {
 
   function altTextFor(img, productTitle, colorValue) {
     if (img && img.altText && img.altText.trim()) return img.altText.trim();
-    if (colorValue) return `${productTitle} — ${colorValue}`;
+    if (colorValue) return `${productTitle}, ${colorValue}`;
     return productTitle;
   }
 

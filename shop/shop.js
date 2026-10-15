@@ -292,7 +292,7 @@
 
   function updateMetaTagsForCatalog() {
     const title = `Shop All | ${SITE_NAME}`;
-    const description = 'Shop personalized engraved and embroidered gifts from V Imprint Designs. Custom text, colors, and fast turnaround — shipped nationwide.';
+    const description = 'Shop personalized engraved and embroidered gifts from V Imprint Designs. Custom text, colors, and fast turnaround, shipped nationwide.';
     const url = `${SITE_ORIGIN}/shop/`;
 
     document.title = title;
@@ -424,7 +424,7 @@
         <div class="shop-hero-v3-copy">
           <span class="shop-hero-v3-eyebrow">Personalized With Purpose</span>
           <p class="shop-hero-v3-heading"><span>Made Personal.</span><span>Made to Last.</span></p>
-          <p class="shop-hero-v3-body">Custom engraving, embroidery, military awards and meaningful gifts&mdash;crafted with precision in Virginia.</p>
+          <p class="shop-hero-v3-body">Custom engraving, embroidery, military awards and meaningful gifts, crafted with precision in Virginia.</p>
           <div class="shop-hero-v3-ctas">
             <button type="button" class="shop-hero-cta shop-hero-cta-primary" id="heroShopCta">Shop Best Sellers</button>
             <button type="button" class="shop-hero-cta shop-hero-cta-outline" id="heroMilitaryCta" data-filter-trigger="Military Awards">Military Awards</button>
@@ -595,7 +595,7 @@
       <footer class="shop-footer" aria-label="Site footer">
         <div class="shop-footer-inner">
           <div class="shop-footer-brand">
-            <p>V Imprint Designs &mdash; custom embroidery, laser engraving and personalized gifts, crafted in Virginia. Hablamos Espa&ntilde;ol.</p>
+            <p>V Imprint Designs offers custom embroidery, laser engraving and personalized gifts, crafted in Virginia. Hablamos Espa&ntilde;ol.</p>
           </div>
           <div class="shop-footer-col">
             <h4>Shop</h4>
@@ -626,7 +626,7 @@
           <div class="shop-footer-col">
             <h4>Visit</h4>
             <ul>
-              <li>Local Pickup Available &mdash; Newport News, VA</li>
+              <li>Local Pickup Available in Newport News, VA</li>
               <li>Hablamos Espa&ntilde;ol</li>
             </ul>
           </div>
@@ -648,7 +648,7 @@
       <div class="catalog">
         ${renderShopHero()}
         <div class="catalog-bar" id="catalogGridAnchor">
-          <h1 class="mhw-sr-only">Shop All &mdash; V Imprint Designs</h1>
+          <h1 class="mhw-sr-only">Shop All: V Imprint Designs</h1>
           <div class="catalog-filters" role="tablist" aria-label="Filter products by category">
             ${CATALOG_FILTERS.map(
               (f) => `
@@ -1143,14 +1143,16 @@
         <div class="product-info">
           <span class="tag">Personalized &amp; Engraved</span>
           <h1>${escapeHtml(p.title)}</h1>
-          <div class="product-price">
+          ${state.isQuoteOnly
+            ? '<div class="product-price product-price-quote">Custom Quote Required</div>'
+            : `<div class="product-price">
             ${formatMoney(priceAmount, currency)}
             ${compareAt ? `<span class="compare-at">${formatMoney(compareAt, currency)}</span>` : ''}
-          </div>
+          </div>`}
 
-          <div class="avail-badge ${state.isQuoteOnly ? 'quote-required' : (inStock ? 'in-stock' : 'out-stock')}">
-            <span class="dot"></span>${state.isQuoteOnly ? 'Custom Quote Required' : (inStock ? 'In stock' : 'Currently unavailable')}
-          </div>
+          ${state.isQuoteOnly ? '' : `<div class="avail-badge ${inStock ? 'in-stock' : 'out-stock'}">
+            <span class="dot"></span>${inStock ? 'In stock' : 'Currently unavailable'}
+          </div>`}
 
           <div class="product-desc">${p.descriptionHtml || ''}</div>
 
@@ -1203,7 +1205,7 @@
       sections.push({ title: 'Product Details', bodyHtml: p.descriptionHtml });
     }
     const personalizationParts = [];
-    if (mf.allowCustomText) personalizationParts.push('Custom engraving text available at checkout.');
+    if (mf.allowCustomText) personalizationParts.push('Custom engraving text can be entered on this product page before adding the item to your cart.');
     if (mf.allowFileUpload) personalizationParts.push('Upload your own logo or artwork (PNG or JPG, up to 20MB).');
     if (mf.allowProofRequest) personalizationParts.push('Request a free digital proof before production begins.');
     if (mf.personalizationInstructions) personalizationParts.push(mf.personalizationInstructions);
@@ -1213,7 +1215,7 @@
     if (mf.productionTime || mf.bulkMinimum) {
       const parts = [];
       if (mf.productionTime) parts.push(`<p>Production time (before shipping): ${escapeHtml(mf.productionTime)}</p>`);
-      if (mf.bulkMinimum) parts.push(`<p>Bulk pricing available from ${escapeHtml(String(mf.bulkMinimum))}+ units &mdash; contact us for a quote.</p>`);
+      if (mf.bulkMinimum) parts.push(`<p>Bulk pricing available from ${escapeHtml(String(mf.bulkMinimum))}+ units. Contact us for a quote.</p>`);
       sections.push({ title: 'Production Time', bodyHtml: parts.join('') });
     }
     // Shipping & Pickup — the trust strip already states these facts
@@ -1327,7 +1329,17 @@
       <a href="${escapeHtml(quoteHref)}" class="btn-add-cart quote-only-cta" id="${id}">
         Request a Custom Quote
       </a>
-      ${idSuffix ? '' : '<p class="hint quote-only-hint">This is a fully custom, made-to-order item. Shipping and final pricing are confirmed after your project is defined — it can\'t be added to the cart directly.</p>'}`;
+      ${idSuffix ? '' : '<p class="hint quote-only-hint">This is a fully custom, made-to-order item. Shipping and final pricing are confirmed after your project is defined, so it can\'t be added to the cart directly.</p>'}`;
+  }
+
+  // Character limit for the custom text field. A product states its own
+  // limit in its personalization instructions (e.g. "Max 40 characters");
+  // without one, the original default of 60 applies.
+  function customTextMaxLength() {
+    const txt = (state.product && state.product.metafields && state.product.metafields.personalizationInstructions) || '';
+    const m = String(txt).match(/(\d{1,3})\s*(?:characters?|chars?)\b/i);
+    const n = m ? Number(m[1]) : 0;
+    return n >= 5 && n <= 500 ? n : 60;
   }
 
   function renderCustomizationFields() {
@@ -1338,9 +1350,9 @@
       html += `
         <div class="custom-field">
           <label for="customText">Custom text (optional)</label>
-          <textarea id="customText" maxlength="60" placeholder="e.g. Coach Martinez — Est. 2019"
+          <textarea id="customText" maxlength="${customTextMaxLength()}" placeholder="e.g. Coach Martinez, Est. 2019"
             aria-required="false">${escapeHtml(state.customText)}</textarea>
-          <div class="char-count"><span id="charCount">${state.customText.length}</span>/60</div>
+          <div class="char-count"><span id="charCount">${state.customText.length}</span>/${customTextMaxLength()}</div>
           ${mf.personalizationInstructions ? `<p class="hint">${escapeHtml(mf.personalizationInstructions)}</p>` : ''}
         </div>`;
     }
@@ -1350,7 +1362,7 @@
         <div class="custom-field">
           <label for="artworkFile">Logo or Artwork</label>
           <input type="file" id="artworkFile" accept="image/png,image/jpeg" class="file-input">
-          <p class="hint">PNG or JPG, up to 20MB. Prefer a smaller file if you can — it uploads faster.</p>
+          <p class="hint">PNG or JPG, up to 20MB. Prefer a smaller file if you can, since it uploads faster.</p>
           <div id="uploadStatusArea">${renderUploadStatus()}</div>
         </div>`;
     }
@@ -1398,7 +1410,7 @@
     // Explicitly labeled as production time only — never implied to include
     // shipping/transit time, which isn't configured for this pilot yet.
     if (mf.productionTime) parts.push(`Production time (before shipping): ${mf.productionTime}`);
-    if (mf.bulkMinimum) parts.push(`Bulk pricing available from ${mf.bulkMinimum}+ units — contact us for a quote`);
+    if (mf.bulkMinimum) parts.push(`Bulk pricing available from ${mf.bulkMinimum}+ units. Contact us for a quote`);
     if (!parts.length) return '';
     return `<div class="meta-note">${parts.map(escapeHtml).join(' · ')}</div>`;
   }

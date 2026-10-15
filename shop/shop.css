@@ -1464,3 +1464,6 @@ body.catalog-view .catalog > :not(.shop-hero-v3) {
 /* Cards: nothing covers the photo; sold-out is plain text by the price */
 .catalog-card.is-soldout .catalog-card-image img { opacity: .55; }
 .catalog-card-soldout { color: var(--mhw-gold-muted); font-weight: 600; font-size: .85em; margin-left: 4px; }
+
+/* Floating WhatsApp button hidden on phones (the cart toggle is untouched) */
+@media (max-width: 768px) { .shop-wa { display: none !important; } }
